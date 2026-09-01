@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1e1f24">
+  <title>Планировщик</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='22'%3E%E2%9C%93%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <div id="app"></div>
+  <template id="tpl-login">
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="brand">
+          <div class="brand-mark">✓</div>
+          <div class="brand-name">Планировщик</div>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Вход</button>
+          <button class="tab" data-tab="register">Регистрация</button>
+        </div>
+        <form class="auth-form" data-form="login">
+          <label>Логин<input name="username" required autocomplete="username"></label>
+          <label>Пароль<input name="password" type="password" required autocomplete="current-password"></label>
+          <button class="btn primary" type="submit">Войти</button>
+          <div class="hint">Первый зарегистрированный пользователь становится администратором.</div>
+          <div class="err" data-err></div>
+        </form>
+        <form class="auth-form hidden" data-form="register">
+          <label>Логин<input name="username" required autocomplete="username"></label>
+          <label>Отображаемое имя<input name="display_name" autocomplete="name"></label>
+          <label>Пароль (≥6 символов)<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+          <button class="btn primary" type="submit">Зарегистрироваться</button>
+          <div class="err" data-err></div>
+        </form>
+      </div>
+    </div>
+  </template>
+</body>
+<script src="/static/app.js" type="module"></script>
+</html>
