@@ -1,0 +1,2 @@
+import{e as t}from"./chunk-DPTWA756.js";var a,n,s,i,o=t(()=>{"use strict";a=e=>n(e)?`.${e}`:`[${JSON.stringify(e)}]`,n=e=>s(e)===!1&&/^[a-zA-Z_$][a-zA-Z_$0-9]*$/g.test(e),s=e=>i.has(e),i=new Set(["break","case","catch","class","const","continue","debugger","default","delete","do","else","enum","export","extends","false","finally","for","function","if","import","in","instanceof","new","null","return","super","switch","this","throw","true","try","typeof","var","void","while","with"])});export{a,o as b};
+//# sourceMappingURL=chunk-WDEKVXSJ.js.map

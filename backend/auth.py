@@ -1,6 +1,8 @@
+from __future__ import annotations
+import base64
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-from fastapi import Depends, HTTPException, status
+from typing import Optional, Tuple
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
@@ -51,8 +53,32 @@ def get_current_user(
     return user
 
 
-def get_user_by_token(token: str, session: Session) -> Optional[User]:
-    uid = decode_token(token)
-    if uid is None:
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Требуются права администратора")
+    return user
+
+
+def parse_basic_auth(request: Request) -> Optional[Tuple[str, str]]:
+    hdr = request.headers.get("authorization", "")
+    if not hdr.lower().startswith("basic "):
         return None
-    return session.get(User, uid)
+    try:
+        raw = base64.b64decode(hdr[6:]).decode("utf-8", errors="replace")
+        if ":" not in raw:
+            return None
+        u, p = raw.split(":", 1)
+        return u, p
+    except Exception:
+        return None
+
+
+def authenticate_basic(session: Session, request: Request) -> Optional[User]:
+    creds = parse_basic_auth(request)
+    if not creds:
+        return None
+    username, password = creds
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user or not verify_password(password, user.password_hash):
+        return None
+    return user

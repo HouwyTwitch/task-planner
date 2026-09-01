@@ -14,10 +14,14 @@ if not exist "data\cert.pem" (
 )
 
 set HOST=0.0.0.0
-set PORT=8443
+if "%PORT%"=="" set PORT=8443
 
-echo Запуск: https://<адрес-этой-машины>:%PORT%
-echo (все машины в локальной сети смогут подключиться после установки cert.pem)
+echo.
+echo ============================================================
+echo Админка:            https://<адрес-этой-машины>:%PORT%/admin
+echo Super Productivity: https://<адрес-этой-машины>:%PORT%/app
+echo WebDAV для SP:      https://<адрес-этой-машины>:%PORT%/webdav/<slug>/
+echo ============================================================
 echo.
 
 call ".venv\Scripts\python.exe" -m uvicorn backend.main:app ^

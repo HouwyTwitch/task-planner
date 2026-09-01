@@ -1,8 +1,7 @@
 from __future__ import annotations
-
 from datetime import datetime, timezone
 from typing import Optional
-from sqlmodel import SQLModel, Field, Relationship, Column, JSON
+from sqlmodel import SQLModel, Field
 
 
 def utcnow() -> datetime:
@@ -18,85 +17,17 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
-class PushSubscription(SQLModel, table=True):
+class Workspace(SQLModel, table=True):
+    """Одна общая «команда» = один WebDAV-каталог, к которому синкается Super Productivity."""
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id", index=True)
-    endpoint: str = Field(unique=True)
-    p256dh: str
-    auth: str
-    user_agent: str = ""
-    created_at: datetime = Field(default_factory=utcnow)
-
-
-class Project(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+    slug: str = Field(index=True, unique=True)  # используется в URL /webdav/<slug>/...
     name: str
-    color: str = "#5b8def"
     owner_id: int = Field(foreign_key="user.id")
     created_at: datetime = Field(default_factory=utcnow)
 
 
-class ProjectMember(SQLModel, table=True):
+class WorkspaceMember(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    workspace_id: int = Field(foreign_key="workspace.id", index=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     role: str = "member"  # owner | member
-
-
-class Task(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    title: str
-    notes: str = ""
-    project_id: Optional[int] = Field(default=None, foreign_key="project.id", index=True)
-    assignee_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
-    created_by: int = Field(foreign_key="user.id")
-
-    is_done: bool = False
-    done_at: Optional[datetime] = None
-
-    estimate_minutes: int = 0
-    spent_minutes: int = 0
-
-    # Планирование
-    scheduled_at: Optional[datetime] = None  # UTC naive, момент выполнения
-    due_at: Optional[datetime] = None
-
-    # Приоритет
-    priority: int = 0  # 0 low, 1 med, 2 high, 3 urgent
-
-    # Регулярность (RRULE-подобное)
-    # kind: none | daily | weekly | monthly | custom_days
-    recurrence: dict = Field(sa_column=Column(JSON), default_factory=dict)
-    # Для регулярных: следующая дата генерации инстанса
-    next_occurrence_at: Optional[datetime] = None
-
-    # Порядок (для kanban)
-    sort_order: float = 0.0
-
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
-
-
-class Reminder(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    task_id: int = Field(foreign_key="task.id", index=True)
-    # смещение до scheduled_at: {"amount": 30, "unit": "minutes"}
-    offset_amount: int = 0
-    offset_unit: str = "minutes"  # minutes|hours|days|weeks
-    # если true — если срабатывает в выходной, сдвигаем на ближайший рабочий день
-    snap_to_workday: bool = True
-    # рассчитанное время срабатывания (UTC naive)
-    fire_at: datetime
-    fired_at: Optional[datetime] = None
-    acknowledged_at: Optional[datetime] = None  # пользователь подтвердил (или увидел)
-    # Кому отправлять: null = всем участникам проекта / assignee
-    target_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
-
-
-class ActivityLog(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    task_id: Optional[int] = Field(default=None, foreign_key="task.id", index=True)
-    user_id: int = Field(foreign_key="user.id")
-    action: str  # created|updated|completed|reopened|commented|reminded
-    payload: dict = Field(sa_column=Column(JSON), default_factory=dict)
-    created_at: datetime = Field(default_factory=utcnow)

@@ -1,0 +1,2 @@
+import{e as s}from"./chunk-DPTWA756.js";var a,n,i,S,r=s(()=>{"use strict";a=t=>{let e=localStorage.getItem(t);if(!(!e||e===""))return JSON.parse(e)},n=(t,e)=>{let o=JSON.stringify(e);localStorage.setItem(t,o)},i=t=>{let e=sessionStorage.getItem(t);if(!(!e||e===""))return JSON.parse(e)},S=(t,e)=>{let o=JSON.stringify(e);sessionStorage.setItem(t,o)}});export{a,n as b,i as c,S as d,r as e};
+//# sourceMappingURL=chunk-MLP2EHDZ.js.map

@@ -27,11 +27,12 @@ call ".venv\Scripts\python.exe" -m pip install --upgrade pip wheel setuptools
 echo [3/4] Устанавливаю зависимости...
 call ".venv\Scripts\python.exe" -m pip install -r requirements.txt || (echo [ERROR] Ошибка установки зависимостей & pause & exit /b 1)
 
-echo [4/4] Генерирую self-signed HTTPS-сертификат (нужен для Web Push)...
+echo [4/4] Генерирую self-signed HTTPS-сертификат...
 call ".venv\Scripts\python.exe" scripts\make_cert.py
 
 echo.
 echo ============================================================
 echo Готово. Запустите run.bat.
+echo Первый зарегистрированный пользователь станет администратором.
 echo ============================================================
 pause
