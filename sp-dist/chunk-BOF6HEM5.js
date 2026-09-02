@@ -1,2 +1,0 @@
-import{c as a,f as p}from"./chunk-4ZP5RPJU.js";import{e as l,k as t}from"./chunk-DPTWA756.js";var r,f=l(()=>{p();r=class extends a{request(n){return t(this,null,function*(){let{url:o,method:d,headers:u,data:c}=n,e=yield fetch(o,{method:d,headers:u,body:c||void 0}),s={};return e.headers.forEach((h,i)=>{s[i]=h}),{data:yield e.text(),status:e.status,headers:s,url:e.url}})}}});f();export{r as WebDavHttpWeb};
-//# sourceMappingURL=chunk-BOF6HEM5.js.map

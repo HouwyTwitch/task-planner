@@ -1,2 +1,0 @@
-import{c as l,f as i}from"./chunk-4ZP5RPJU.js";import{e,k as s}from"./chunk-DPTWA756.js";var o,c,w=e(()=>{i();o=class extends l{constructor(){super(),this._lastWindow=null}open(n){return s(this,null,function*(){this._lastWindow=window.open(n.url,n.windowName||"_blank")})}close(){return s(this,null,function*(){return new Promise((n,t)=>{this._lastWindow!=null?(this._lastWindow.close(),this._lastWindow=null,n()):t("No active window to close!")})})}},c=new o});w();export{c as Browser,o as BrowserWeb};
-//# sourceMappingURL=chunk-IDOHCQXE.js.map

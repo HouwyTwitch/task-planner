@@ -1,2 +1,0 @@
-import{c as e,f as o}from"./chunk-4ZP5RPJU.js";import{e as n,k as t}from"./chunk-DPTWA756.js";var s,r=n(()=>{o();s=class extends e{getSafeAreaInsets(){return t(this,null,function*(){return{insets:{top:0,left:0,right:0,bottom:0}}})}getStatusBarHeight(){return t(this,null,function*(){return{statusBarHeight:0}})}setImmersiveNavigationBar(){throw this.unimplemented("Method not supported on Web.")}unsetImmersiveNavigationBar(){throw this.unimplemented("Method not supported on Web.")}}});r();export{s as SafeAreaWeb};
-//# sourceMappingURL=chunk-X2TBNTUF.js.map
