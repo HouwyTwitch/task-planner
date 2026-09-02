@@ -62,13 +62,29 @@ export const clearDirectoryHandle = async (): Promise<void> => {
   db.close();
 };
 
+/**
+ * Методы разрешений File System Access API отсутствуют в стандартных типах
+ * lib.dom, поэтому описываем их сами вместо подключения отдельного пакета
+ * типов ради двух сигнатур.
+ */
+type ЗапросРазрешения = { mode?: 'read' | 'readwrite' };
+
+type ДескрипторСРазрешениями = FileSystemDirectoryHandle & {
+  queryPermission(opts?: ЗапросРазрешения): Promise<PermissionState>;
+  requestPermission(opts?: ЗапросРазрешения): Promise<PermissionState>;
+};
+
+const сРазрешениями = (handle: FileSystemDirectoryHandle): ДескрипторСРазрешениями =>
+  handle as ДескрипторСРазрешениями;
+
 /** Есть ли уже выданное право на запись (без запроса — не требует жеста). */
 export const hasWritePermission = async (
   handle: FileSystemDirectoryHandle,
-): Promise<boolean> => (await handle.queryPermission({ mode: 'readwrite' })) === 'granted';
+): Promise<boolean> =>
+  (await сРазрешениями(handle).queryPermission({ mode: 'readwrite' })) === 'granted';
 
 /** Запрашивает право на запись. Требует жеста пользователя (клика). */
 export const requestDirectoryPermission = async (
   handle: FileSystemDirectoryHandle,
 ): Promise<boolean> =>
-  (await handle.requestPermission({ mode: 'readwrite' })) === 'granted';
+  (await сРазрешениями(handle).requestPermission({ mode: 'readwrite' })) === 'granted';
