@@ -1,0 +1,29 @@
+{
+  "name": "Передача задач",
+  "id": "task-handoff",
+  "manifestVersion": 1,
+  "version": "1.0.0",
+  "minSupVersion": "13.0.0",
+  "description": "Совместная работа над общим файлом: передача задач между участниками с приёмом, отклонением и уведомлениями.",
+  "hooks": [],
+  "permissions": [
+    "getTasks",
+    "updateTask",
+    "getAllTags",
+    "addTag",
+    "persistDataSynced",
+    "loadSyncedData",
+    "showIndexHtmlAsView",
+    "openDialog",
+    "showSnack",
+    "getCurrentLanguage"
+  ],
+  "i18n": {
+    "languages": ["ru", "en"]
+  },
+  "iFrame": true,
+  "sidePanel": true,
+  "type": "standard",
+  "assets": [],
+  "icon": "icon.svg"
+}

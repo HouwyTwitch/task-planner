@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Передача задач</title>
+<style>
+  :root {
+    --фон: #14161c; --фон-2: #1b1e26; --фон-3: #22262f; --фон-навед: #2a2e39;
+    --линия: #2b2f3a; --текст: #e6e8ee; --текст-тускл: #9aa1b1;
+    --акцент: #5b8def; --акцент-2: #7aa4ff;
+    --опасно: #ef5b6a; --внимание: #f2b658; --успех: #4fc17b;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --фон: #f6f7f9; --фон-2: #fff; --фон-3: #eef0f4; --фон-навед: #e4e7ee;
+      --линия: #d8dce4; --текст: #1c2029; --текст-тускл: #5f6878;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: var(--фон); color: var(--текст); font-size: 14px; line-height: 1.45;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: transparent; }
+  input, textarea, select {
+    font: inherit; color: var(--текст); background: var(--фон-3);
+    border: 1px solid var(--линия); border-radius: 8px; padding: 8px 10px; width: 100%; outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--акцент); }
+  textarea { resize: vertical; min-height: 64px; }
+
+  .обёртка { display: flex; flex-direction: column; height: 100%; }
+  .вкладки {
+    display: flex; gap: 4px; padding: 10px; background: var(--фон-2);
+    border-bottom: 1px solid var(--линия); position: sticky; top: 0; z-index: 3; flex-wrap: wrap;
+  }
+  .вкладка {
+    padding: 7px 12px; border-radius: 8px; color: var(--текст-тускл);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .вкладка:hover { background: var(--фон-навед); color: var(--текст); }
+  .вкладка.выбрана { background: var(--фон-3); color: var(--текст); }
+  .значок {
+    font-size: 11px; background: var(--акцент); color: #fff;
+    border-radius: 10px; padding: 1px 6px; min-width: 18px; text-align: center;
+  }
+  .значок.внимание { background: var(--внимание); color: #241a05; }
+
+  .содержимое { flex: 1; overflow: auto; padding: 14px; }
+  .список { display: flex; flex-direction: column; gap: 8px; }
+  .группа {
+    color: var(--текст-тускл); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .06em; margin: 14px 0 6px;
+  }
+  .группа:first-child { margin-top: 0; }
+
+  .карточка {
+    background: var(--фон-2); border: 1px solid var(--линия);
+    border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px;
+  }
+  .карточка.ожидает { border-left: 3px solid var(--внимание); }
+  .карточка.принята { border-left: 3px solid var(--успех); opacity: .8; }
+  .карточка.отклонена { border-left: 3px solid var(--опасно); opacity: .8; }
+  .карточка.отозвана { opacity: .65; }
+  .шапка { display: flex; align-items: center; gap: 10px; }
+  .аватар {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--акцент), var(--акцент-2));
+    display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 600;
+  }
+  .название { font-weight: 500; }
+  .тускло { color: var(--текст-тускл); font-size: 12px; }
+  .сообщение {
+    background: var(--фон-3); border-radius: 8px; padding: 8px 10px;
+    color: var(--текст-тускл); font-size: 13px; white-space: pre-wrap;
+  }
+  .кнопки { display: flex; gap: 8px; flex-wrap: wrap; }
+  .кнопка {
+    padding: 8px 13px; border-radius: 8px; background: var(--фон-3);
+    border: 1px solid var(--линия); display: inline-flex; align-items: center; gap: 6px;
+  }
+  .кнопка:hover { background: var(--фон-навед); }
+  .кнопка:disabled { opacity: .5; cursor: not-allowed; }
+  .кнопка.главная { background: var(--акцент); border-color: var(--акцент); color: #fff; }
+  .кнопка.успех { background: var(--успех); border-color: var(--успех); color: #0d2417; }
+  .кнопка.тихая { border-color: transparent; color: var(--текст-тускл); }
+  .кнопка.мелкая { padding: 5px 9px; font-size: 12px; }
+
+  .задача {
+    background: var(--фон-2); border: 1px solid var(--линия); border-radius: 10px;
+    padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+  }
+  .метка {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    background: var(--фон-3); font-size: 11px; color: var(--текст-тускл);
+  }
+  .метка.ждёт { background: rgba(242,182,88,.18); color: var(--внимание); }
+
+  .пусто {
+    padding: 36px 18px; text-align: center; color: var(--текст-тускл);
+    background: var(--фон-2); border: 1px dashed var(--линия); border-radius: 12px;
+  }
+
+  .окно-фон {
+    position: fixed; inset: 0; background: rgba(8,10,15,.6);
+    display: grid; place-items: center; padding: 16px; z-index: 20;
+  }
+  .окно {
+    background: var(--фон-2); border: 1px solid var(--линия); border-radius: 12px;
+    width: min(460px, 100%); max-height: 88vh; overflow: auto;
+  }
+  .окно-шапка {
+    padding: 13px 15px; border-bottom: 1px solid var(--линия);
+    display: flex; align-items: center; gap: 10px; font-weight: 600;
+  }
+  .окно-тело { padding: 15px; display: grid; gap: 12px; }
+  .окно-низ {
+    padding: 12px 15px; border-top: 1px solid var(--линия);
+    display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+  }
+  .поле { display: grid; gap: 6px; }
+  .поле > .подпись { color: var(--текст-тускл); font-size: 12px; }
+  .распорка { flex: 1; }
+</style>
+</head>
+<body>
+<div class="обёртка">
+  <div class="вкладки" id="вкладки"></div>
+  <div class="содержимое" id="содержимое"></div>
+</div>
+
+<script src="core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var ЯДРО = window.ПередачаЗадач;
+  var КЛЮЧ_ПРОФИЛЯ = 'передача-задач:профиль';
+
+  var состояние = {
+    профиль: null,
+    операции: [],
+    данные: null,
+    задачи: [],
+    теги: [],
+    вкладка: 'мои',
+    занято: false,
+  };
+
+  // ---------- утилиты ----------
+
+  function эл(тег, атрибуты, дети) {
+    var узел = document.createElement(тег);
+    Object.keys(атрибуты || {}).forEach(function (ключ) {
+      var значение = атрибуты[ключ];
+      if (значение == null || значение === false) return;
+      if (ключ === 'class') узел.className = значение;
+      else if (ключ.slice(0, 2) === 'on') узел.addEventListener(ключ.slice(2).toLowerCase(), значение);
+      else узел.setAttribute(ключ, значение);
+    });
+    (дети || []).forEach(function (ребёнок) {
+      if (ребёнок == null || ребёнок === false) return;
+      узел.appendChild(typeof ребёнок === 'string' ? document.createTextNode(ребёнок) : ребёнок);
+    });
+    return узел;
+  }
+
+  function инициал(имя) {
+    return ((имя || '?').trim().charAt(0) || '?').toUpperCase();
+  }
+
+  function склонение(число, один, два, много) {
+    var н = Math.abs(число) % 100;
+    var п = н % 10;
+    if (н > 10 && н < 20) return много;
+    if (п > 1 && п < 5) return два;
+    if (п === 1) return один;
+    return много;
+  }
+
+  function времяНазад(значение) {
+    var секунд = Math.floor((Date.now() - new Date(значение).getTime()) / 1000);
+    if (секунд < 60) return 'только что';
+    var минут = Math.floor(секунд / 60);
+    if (минут < 60) return минут + ' ' + склонение(минут, 'минуту', 'минуты', 'минут') + ' назад';
+    var часов = Math.floor(минут / 60);
+    if (часов < 24) return часов + ' ' + склонение(часов, 'час', 'часа', 'часов') + ' назад';
+    var дней = Math.floor(часов / 24);
+    if (дней < 30) return дней + ' ' + склонение(дней, 'день', 'дня', 'дней') + ' назад';
+    return new Date(значение).toLocaleDateString('ru-RU');
+  }
+
+  function имяУчастника(id) {
+    if (!состояние.данные) return 'участник';
+    if (id === (состояние.профиль || {}).id) return 'вы';
+    return (состояние.данные.участники[id] || {}).имя || 'неизвестный участник';
+  }
+
+  // ---------- загрузка ----------
+
+  function прочитатьПрофиль() {
+    try { return JSON.parse(localStorage.getItem(КЛЮЧ_ПРОФИЛЯ) || 'null'); }
+    catch (е) { return null; }
+  }
+
+  async function загрузить() {
+    состояние.профиль = прочитатьПрофиль();
+    состояние.операции = await ЯДРО.прочитать(PluginAPI);
+    состояние.данные = ЯДРО.собратьСостояние(состояние.операции);
+    состояние.задачи = (await PluginAPI.getTasks()) || [];
+    состояние.теги = (await PluginAPI.getAllTags()) || [];
+  }
+
+  async function перезагрузитьИОтрисовать() {
+    await загрузить();
+    отрисовать();
+  }
+
+  /** Дописывает операции в общий журнал и обновляет экран. */
+  async function применить(операции) {
+    if (состояние.занято) return;
+    состояние.занято = true;
+    отрисовать();
+    try {
+      состояние.операции = await ЯДРО.дописать(PluginAPI, операции);
+      состояние.данные = ЯДРО.собратьСостояние(состояние.операции);
+    } finally {
+      состояние.занято = false;
+    }
+    await перезагрузитьИОтрисовать();
+  }
+
+  // ---------- работа с тегами (ответственный) ----------
+
+  function тегУчастника(участникId) {
+    var у = (состояние.данные.участники || {})[участникId];
+    return у ? (у.тег || у.имя) : null;
+  }
+
+  function найтиТегПоНазванию(название) {
+    return (состояние.теги || []).find(function (т) { return т.title === название; });
+  }
+
+  async function обеспечитьТег(название) {
+    var найденный = найтиТегПоНазванию(название);
+    if (найденный) return найденный.id;
+    var id = await PluginAPI.addTag({ title: название });
+    состояние.теги = (await PluginAPI.getAllTags()) || [];
+    return id;
+  }
+
+  /** Задачи, за которые отвечаю я (помечены моим тегом). */
+  function моиЗадачи() {
+    var мойТег = найтиТегПоНазванию((состояние.профиль || {}).тег);
+    if (!мойТег) return [];
+    return состояние.задачи.filter(function (з) {
+      return !з.isDone && (з.tagIds || []).indexOf(мойТег.id) !== -1;
+    });
+  }
+
+  /** Есть ли по задаче неотвеченное предложение. */
+  function ожидаетОтвета(задачаId) {
+    return состояние.данные.списокПередач().find(function (п) {
+      return п.задачаId === задачаId && п.статус === 'ожидает';
+    });
+  }
+
+  /** Переносит отметку ответственного с одного участника на другого. */
+  async function передатьОтветственность(задачаId, отId, комуId) {
+    var задача = состояние.задачи.find(function (з) { return з.id === задачаId; });
+    if (!задача) return;
+
+    var тегОтправителя = найтиТегПоНазванию(тегУчастника(отId));
+    var названиеПолучателя = тегУчастника(комуId);
+    if (!названиеПолучателя) return;
+    var тегПолучателяId = await обеспечитьТег(названиеПолучателя);
+
+    var теги = (задача.tagIds || []).slice();
+    if (тегОтправителя) {
+      теги = теги.filter(function (id) { return id !== тегОтправителя.id; });
+    }
+    if (теги.indexOf(тегПолучателяId) === -1) теги.push(тегПолучателяId);
+
+    await PluginAPI.updateTask(задачаId, { tagIds: теги });
+  }
+
+  // ---------- действия ----------
+
+  async function передатьЗадачу(задача, комуId, сообщение) {
+    await применить([
+      ЯДРО.создатьОперацию(ЯДРО.ТИПЫ.ПРЕДЛОЖЕНИЕ, состояние.профиль.id, {
+        offerId: ЯДРО.новыйId('offer'),
+        taskId: задача.id,
+        taskTitle: задача.title,
+        fromId: состояние.профиль.id,
+        toId: комуId,
+        message: сообщение || '',
+      }),
+    ]);
+    PluginAPI.showSnack({
+      msg: 'Задача отправлена: ' + имяУчастника(комуId) + ' увидит её после синхронизации',
+      type: 'SUCCESS',
+    });
+  }
+
+  async function принять(передача) {
+    await передатьОтветственность(передача.задачаId, передача.отId, состояние.профиль.id);
+    await применить([
+      ЯДРО.создатьОперацию(ЯДРО.ТИПЫ.ПРИНЯТИЕ, состояние.профиль.id, {
+        offerId: передача.id,
+        byId: состояние.профиль.id,
+      }),
+    ]);
+    PluginAPI.showSnack({ msg: 'Задача принята — теперь она ваша', type: 'SUCCESS' });
+  }
+
+  async function отклонить(передача, причина) {
+    await применить([
+      ЯДРО.создатьОперацию(ЯДРО.ТИПЫ.ОТКЛОНЕНИЕ, состояние.профиль.id, {
+        offerId: передача.id,
+        byId: состояние.профиль.id,
+        reason: причина || '',
+      }),
+    ]);
+    PluginAPI.showSnack({
+      msg: 'Задача отклонена: ' + имяУчастника(передача.отId) + ' получит уведомление',
+      type: 'ERROR',
+    });
+  }
+
+  async function отозвать(передача) {
+    await применить([
+      ЯДРО.создатьОперацию(ЯДРО.ТИПЫ.ОТЗЫВ, состояние.профиль.id, { offerId: передача.id }),
+    ]);
+  }
+
+  // ---------- выборки ----------
+
+  function входящие() {
+    var мой = (состояние.профиль || {}).id;
+    return состояние.данные.списокПередач()
+      .filter(function (п) { return п.комуId === мой; })
+      .sort(function (a, b) { return a.созданаВ < b.созданаВ ? 1 : -1; });
+  }
+
+  function отправленные() {
+    var мой = (состояние.профиль || {}).id;
+    return состояние.данные.списокПередач()
+      .filter(function (п) { return п.отId === мой; })
+      .sort(function (a, b) { return a.созданаВ < b.созданаВ ? 1 : -1; });
+  }
+
+  // ---------- отрисовка ----------
+
+  function отрисовать() {
+    отрисоватьВкладки();
+    var корень = document.getElementById('содержимое');
+    корень.innerHTML = '';
+
+    if (!состояние.профиль) {
+      корень.appendChild(эл('div', { class: 'пусто' }, [
+        'Профиль ещё не создан. Перезагрузите Super Productivity — плагин спросит ваше имя.',
+      ]));
+      return;
+    }
+
+    ({
+      мои: видМоиЗадачи,
+      входящие: видВходящие,
+      отправленные: видОтправленные,
+      участники: видУчастники,
+    }[состояние.вкладка] || видМоиЗадачи)(корень);
+  }
+
+  function отрисоватьВкладки() {
+    var панель = document.getElementById('вкладки');
+    панель.innerHTML = '';
+
+    var ждут = состояние.данные ? входящие().filter(function (п) { return п.статус === 'ожидает'; }).length : 0;
+    var вПути = состояние.данные ? отправленные().filter(function (п) { return п.статус === 'ожидает'; }).length : 0;
+
+    [
+      { код: 'мои', имя: 'Мои задачи', счёт: состояние.данные ? моиЗадачи().length : 0 },
+      { код: 'входящие', имя: 'Входящие', счёт: ждут, важно: true },
+      { код: 'отправленные', имя: 'Отправленные', счёт: вПути },
+      { код: 'участники', имя: 'Участники', счёт: состояние.данные ? состояние.данные.списокУчастников().length : 0 },
+    ].forEach(function (в) {
+      панель.appendChild(эл('button', {
+        class: 'вкладка' + (состояние.вкладка === в.код ? ' выбрана' : ''),
+        onclick: function () { состояние.вкладка = в.код; отрисовать(); },
+      }, [
+        в.имя,
+        в.счёт ? эл('span', { class: 'значок' + (в.важно ? ' внимание' : '') }, [String(в.счёт)]) : null,
+      ]));
+    });
+
+    панель.appendChild(эл('div', { class: 'распорка' }, []));
+    панель.appendChild(эл('button', {
+      class: 'кнопка тихая мелкая',
+      onclick: перезагрузитьИОтрисовать,
+    }, ['Обновить']));
+  }
+
+  // --- мои задачи ---
+
+  function видМоиЗадачи(корень) {
+    var задачи = моиЗадачи();
+    if (!задачи.length) {
+      корень.appendChild(эл('div', { class: 'пусто' }, [
+        'За вами пока не закреплено ни одной задачи. Отметьте задачу тегом «'
+        + (состояние.профиль.тег || состояние.профиль.имя) + '», и она появится здесь.',
+      ]));
+      return;
+    }
+
+    корень.appendChild(эл('p', { class: 'тускло' }, [
+      'Задачи с вашим тегом. Любую можно передать коллеге — он примет её или откажется.',
+    ]));
+
+    var список = эл('div', { class: 'список' }, []);
+    задачи.forEach(function (з) {
+      var ждёт = ожидаетОтвета(з.id);
+      список.appendChild(эл('div', { class: 'задача' }, [
+        эл('div', {}, [
+          эл('div', { class: 'название' }, [з.title]),
+          ждёт
+            ? эл('div', { class: 'тускло' }, [
+                эл('span', { class: 'метка ждёт' }, ['ждёт ответа от ' + имяУчастника(ждёт.комуId)]),
+              ])
+            : null,
+        ]),
+        ждёт
+          ? эл('button', {
+              class: 'кнопка мелкая',
+              onclick: function () { отозвать(ждёт); },
+            }, ['Отозвать'])
+          : эл('button', {
+              class: 'кнопка главная мелкая',
+              onclick: function () { окноПередачи(з); },
+            }, ['Передать']),
+      ]));
+    });
+    корень.appendChild(список);
+  }
+
+  // --- входящие ---
+
+  function видВходящие(корень) {
+    var все = входящие();
+    if (!все.length) {
+      корень.appendChild(эл('div', { class: 'пусто' }, ['Вам пока никто не передавал задачи.']));
+      return;
+    }
+
+    var ждут = все.filter(function (п) { return п.статус === 'ожидает'; });
+    var история = все.filter(function (п) { return п.статус !== 'ожидает'; });
+
+    if (ждут.length) {
+      корень.appendChild(эл('div', { class: 'группа' }, ['Ждут вашего решения · ' + ждут.length]));
+      var а = эл('div', { class: 'список' }, []);
+      ждут.forEach(function (п) { а.appendChild(карточкаВходящей(п)); });
+      корень.appendChild(а);
+    }
+    if (история.length) {
+      корень.appendChild(эл('div', { class: 'группа' }, ['История · ' + история.length]));
+      var б = эл('div', { class: 'список' }, []);
+      история.forEach(function (п) { б.appendChild(карточкаВходящей(п)); });
+      корень.appendChild(б);
+    }
+  }
+
+  function карточкаВходящей(передача) {
+    var ждёт = передача.статус === 'ожидает';
+    var подписи = {
+      принята: 'Вы приняли эту задачу',
+      отклонена: 'Вы отклонили' + (передача.причина ? ': ' + передача.причина : ''),
+      отозвана: 'Отправитель отозвал предложение',
+    };
+
+    return эл('div', { class: 'карточка ' + передача.статус }, [
+      эл('div', { class: 'шапка' }, [
+        эл('div', { class: 'аватар' }, [инициал(имяУчастника(передача.отId))]),
+        эл('div', {}, [
+          эл('div', { class: 'название' }, [передача.заголовокЗадачи || 'Задача']),
+          эл('div', { class: 'тускло' }, [
+            'от ' + имяУчастника(передача.отId) + ' · ' + времяНазад(передача.созданаВ),
+          ]),
+        ]),
+      ]),
+      передача.сообщение ? эл('div', { class: 'сообщение' }, [передача.сообщение]) : null,
+      ждёт
+        ? эл('div', { class: 'кнопки' }, [
+            эл('button', {
+              class: 'кнопка успех',
+              disabled: состояние.занято,
+              onclick: function () { принять(передача); },
+            }, ['Принять']),
+            эл('button', {
+              class: 'кнопка',
+              disabled: состояние.занято,
+              onclick: function () { окноОтклонения(передача); },
+            }, ['Отклонить']),
+          ])
+        : эл('div', { class: 'тускло' }, [
+            (подписи[передача.статус] || '') + ' · ' + времяНазад(передача.решениеВ || передача.созданаВ),
+          ]),
+    ]);
+  }
+
+  // --- отправленные ---
+
+  function видОтправленные(корень) {
+    var все = отправленные();
+    if (!все.length) {
+      корень.appendChild(эл('div', { class: 'пусто' }, [
+        'Вы ещё никому не передавали задачи. Откройте «Мои задачи» и нажмите «Передать».',
+      ]));
+      return;
+    }
+
+    var список = эл('div', { class: 'список' }, []);
+    все.forEach(function (п) {
+      var подписи = {
+        ожидает: 'Ждём ответа от ' + имяУчастника(п.комуId),
+        принята: имяУчастника(п.комуId) + ' принял задачу',
+        отклонена: имяУчастника(п.комуId) + ' отклонил' + (п.причина ? ': ' + п.причина : ''),
+        отозвана: 'Вы отозвали предложение',
+      };
+      список.appendChild(эл('div', { class: 'карточка ' + п.статус }, [
+        эл('div', { class: 'шапка' }, [
+          эл('div', { class: 'аватар' }, [инициал(имяУчастника(п.комуId))]),
+          эл('div', {}, [
+            эл('div', { class: 'название' }, [п.заголовокЗадачи || 'Задача']),
+            эл('div', { class: 'тускло' }, [
+              подписи[п.статус] + ' · ' + времяНазад(п.решениеВ || п.созданаВ),
+            ]),
+          ]),
+        ]),
+        п.сообщение ? эл('div', { class: 'сообщение' }, [п.сообщение]) : null,
+        п.статус === 'ожидает'
+          ? эл('div', { class: 'кнопки' }, [
+              эл('button', {
+                class: 'кнопка мелкая',
+                disabled: состояние.занято,
+                onclick: function () { отозвать(п); },
+              }, ['Отозвать']),
+            ])
+          : null,
+      ]));
+    });
+    корень.appendChild(список);
+  }
+
+  // --- участники ---
+
+  function видУчастники(корень) {
+    var люди = состояние.данные.списокУчастников()
+      .sort(function (a, b) { return a.имя.localeCompare(b.имя, 'ru'); });
+
+    корень.appendChild(эл('p', { class: 'тускло' }, [
+      'Все, кто работал с этим общим файлом. Им можно передавать задачи.',
+    ]));
+
+    if (!люди.length) {
+      корень.appendChild(эл('div', { class: 'пусто' }, [
+        'Пока в файле только вы. Когда коллега откроет тот же файл, он появится здесь.',
+      ]));
+      return;
+    }
+
+    var список = эл('div', { class: 'список' }, []);
+    люди.forEach(function (у) {
+      var тег = найтиТегПоНазванию(у.тег || у.имя);
+      var сколько = тег
+        ? состояние.задачи.filter(function (з) {
+            return !з.isDone && (з.tagIds || []).indexOf(тег.id) !== -1;
+          }).length
+        : 0;
+      список.appendChild(эл('div', { class: 'задача' }, [
+        эл('div', { class: 'шапка' }, [
+          эл('div', { class: 'аватар' }, [инициал(у.имя)]),
+          эл('div', {}, [
+            эл('div', { class: 'название' }, [
+              у.имя + (у.id === состояние.профиль.id ? ' (вы)' : ''),
+            ]),
+            эл('div', { class: 'тускло' }, [
+              сколько + ' ' + склонение(сколько, 'задача', 'задачи', 'задач') + ' в работе',
+            ]),
+          ]),
+        ]),
+        null,
+      ]));
+    });
+    корень.appendChild(список);
+  }
+
+  // ---------- модальные окна ----------
+
+  function показатьОкно(построить) {
+    var фон = эл('div', { class: 'окно-фон' }, []);
+    var закрыть = function () { фон.remove(); };
+    фон.addEventListener('click', function (е) { if (е.target === фон) закрыть(); });
+    фон.appendChild(построить(закрыть));
+    document.body.appendChild(фон);
+  }
+
+  function окноПередачи(задача) {
+    var другие = состояние.данные.списокУчастников().filter(function (у) {
+      return у.id !== состояние.профиль.id;
+    });
+
+    показатьОкно(function (закрыть) {
+      if (!другие.length) {
+        return эл('div', { class: 'окно' }, [
+          эл('div', { class: 'окно-шапка' }, ['Некому передавать']),
+          эл('div', { class: 'окно-тело' }, [
+            эл('div', { class: 'тускло' }, [
+              'В общем файле пока нет других участников. Попросите коллегу открыть тот же файл — '
+              + 'после синхронизации он появится в списке.',
+            ]),
+          ]),
+          эл('div', { class: 'окно-низ' }, [
+            эл('button', { class: 'кнопка', onclick: закрыть }, ['Закрыть']),
+          ]),
+        ]);
+      }
+
+      var выбор = эл('select', {}, другие.map(function (у) {
+        return эл('option', { value: у.id }, [у.имя]);
+      }));
+      var сообщение = эл('textarea', {
+        placeholder: 'Например: возьми, пожалуйста, до пятницы',
+      }, []);
+
+      return эл('div', { class: 'окно' }, [
+        эл('div', { class: 'окно-шапка' }, ['Передать задачу']),
+        эл('div', { class: 'окно-тело' }, [
+          эл('div', { class: 'поле' }, [
+            эл('span', { class: 'подпись' }, ['Задача']),
+            эл('div', { class: 'название' }, [задача.title]),
+          ]),
+          эл('div', { class: 'поле' }, [эл('span', { class: 'подпись' }, ['Кому']), выбор]),
+          эл('div', { class: 'поле' }, [эл('span', { class: 'подпись' }, ['Сообщение']), сообщение]),
+          эл('div', { class: 'тускло' }, [
+            'Получатель увидит предложение во «Входящих» и сможет принять или отклонить его. '
+            + 'Вы получите уведомление о решении. Пока он не ответил, задача остаётся за вами.',
+          ]),
+        ]),
+        эл('div', { class: 'окно-низ' }, [
+          эл('button', { class: 'кнопка', onclick: закрыть }, ['Отмена']),
+          эл('button', {
+            class: 'кнопка главная',
+            onclick: function () {
+              передатьЗадачу(задача, выбор.value, сообщение.value.trim());
+              закрыть();
+            },
+          }, ['Отправить']),
+        ]),
+      ]);
+    });
+  }
+
+  function окноОтклонения(передача) {
+    показатьОкно(function (закрыть) {
+      var причина = эл('textarea', { placeholder: 'Например: занят до конца недели' }, []);
+      return эл('div', { class: 'окно' }, [
+        эл('div', { class: 'окно-шапка' }, ['Отклонить задачу']),
+        эл('div', { class: 'окно-тело' }, [
+          эл('div', { class: 'поле' }, [
+            эл('span', { class: 'подпись' }, ['Задача']),
+            эл('div', { class: 'название' }, [передача.заголовокЗадачи || 'Задача']),
+          ]),
+          эл('div', { class: 'поле' }, [эл('span', { class: 'подпись' }, ['Причина']), причина]),
+          эл('div', { class: 'тускло' }, [
+            имяУчастника(передача.отId) + ' получит уведомление с вашей причиной. Задача останется за ним.',
+          ]),
+        ]),
+        эл('div', { class: 'окно-низ' }, [
+          эл('button', { class: 'кнопка', onclick: закрыть }, ['Отмена']),
+          эл('button', {
+            class: 'кнопка',
+            onclick: function () { отклонить(передача, причина.value.trim()); закрыть(); },
+          }, ['Отклонить']),
+        ]),
+      ]);
+    });
+  }
+
+  // ---------- запуск ----------
+
+  перезагрузитьИОтрисовать().catch(function (е) {
+    document.getElementById('содержимое').textContent = 'Ошибка загрузки: ' + е.message;
+    console.error('[Передача задач]', е);
+  });
+})();
+</script>
+</body>
+</html>

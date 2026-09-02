@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>AI Productivity Prompts</title>
+    <script type="module">(function(){let e=document.createElement(`link`).relList;if(e&&e.supports&&e.supports(`modulepreload`))return;for(let e of document.querySelectorAll(`link[rel="modulepreload"]`))n(e);new MutationObserver(e=>{for(let t of e)if(t.type===`childList`)for(let e of t.addedNodes)e.tagName===`LINK`&&e.rel===`modulepreload`&&n(e)}).observe(document,{childList:!0,subtree:!0});function t(e){let t={};return e.integrity&&(t.integrity=e.integrity),e.referrerPolicy&&(t.referrerPolicy=e.referrerPolicy),e.crossOrigin===`use-credentials`?t.credentials=`include`:e.crossOrigin===`anonymous`?t.credentials=`omit`:t.credentials=`same-origin`,t}function n(e){if(e.ep)return;e.ep=!0;let n=t(e);fetch(e.href,n)}})();var e={context:void 0,registry:void 0,effects:void 0,done:!1,getContextId(){return t(this.context.count)},getNextContextId(){return t(this.context.count++)}};function t(t){let n=String(t),r=n.length-1;return e.context.id+(r?String.fromCharCode(96+r):``)+n}function n(t){e.context=t}function r(){return{...e.context,id:e.getNextContextId(),count:0}}var i=(e,t)=>e===t,a=Symbol(`solid-track`),o={equals:i},s=null,c=se,l=1,u=2,d={owned:null,cleanups:null,context:null,owner:null},f=null,p=null,m=null,h=null,g=null,_=null,v=null,y=0;function b(e,t){let n=g,r=f,i=e.length===0,a=t===void 0?r:t,o=i?d:{owned:null,cleanups:null,context:a?a.context:null,owner:a},s=i?e:()=>e(()=>w(()=>I(o)));f=o,g=null;try{return N(s,!0)}finally{g=n,f=r}}function x(e,t){t=t?Object.assign({},o,t):o;let n={value:e,observers:null,observerSlots:null,comparator:t.equals||void 0};return[re.bind(n),e=>(typeof e==`function`&&(e=p&&p.running&&p.sources.has(n)?e(n.tValue):e(n.value)),ie(n,e))]}function S(e,t,n){let r=j(e,t,!1,l);m&&p&&p.running?_.push(r):A(r)}function ee(e,t,n){c=le;let r=j(e,t,!1,l),i=k&&ne(k);i&&(r.suspense=i),(!n||!n.render)&&(r.user=!0),v?v.push(r):A(r)}function C(e,t,n){n=n?Object.assign({},o,n):o;let r=j(e,t,!0,0);return r.observers=null,r.observerSlots=null,r.comparator=n.equals||void 0,m&&p&&p.running?(r.tState=l,_.push(r)):A(r),re.bind(r)}function w(e){if(!h&&g===null)return e();let t=g;g=null;try{return h?h.untrack(e):e()}finally{g=t}}function T(e){ee(()=>w(e))}function E(e){return f===null||(f.cleanups===null?f.cleanups=[e]:f.cleanups.push(e)),e}function D(e){if(p&&p.running)return e(),p.done;let t=g,n=f;return Promise.resolve().then(()=>{g=t,f=n;let r;return(m||k)&&(r=p||={sources:new Set,effects:[],promises:new Set,disposed:new Set,queue:new Set,running:!0},r.done||=new Promise(e=>r.resolve=e),r.running=!0),N(e,!1),g=f=null,r?r.done:void 0})}var[te,O]=x(!1);function ne(e){let t;return f&&f.context&&(t=f.context[e.id])!==void 0?t:e.defaultValue}var k;function re(){let e=p&&p.running;if(this.sources&&(e?this.tState:this.state))if((e?this.tState:this.state)===l)A(this);else{let e=_;_=null,N(()=>P(this),!1),_=e}if(g){let e=this.observers;if(!e||e[e.length-1]!==g){let t=e?e.length:0;g.sources?(g.sources.push(this),g.sourceSlots.push(t)):(g.sources=[this],g.sourceSlots=[t]),e?(e.push(g),this.observerSlots.push(g.sources.length-1)):(this.observers=[g],this.observerSlots=[g.sources.length-1])}}return e&&p.sources.has(this)?this.tValue:this.value}function ie(e,t,n){let r=p&&p.running&&p.sources.has(e)?e.tValue:e.value;if(!e.comparator||!e.comparator(r,t)){if(p){let r=p.running;(r||!n&&p.sources.has(e))&&(p.sources.add(e),e.tValue=t),r||(e.value=t)}else e.value=t;e.observers&&e.observers.length&&N(()=>{for(let t=0;t<e.observers.length;t+=1){let n=e.observers[t],r=p&&p.running;r&&p.disposed.has(n)||((r?!n.tState:!n.state)&&(n.pure?_.push(n):v.push(n),n.observers&&F(n)),r?n.tState=l:n.state=l)}if(_.length>1e6)throw _=[],Error()},!1)}return t}function A(e){if(!e.fn)return;I(e);let t=y;ae(e,p&&p.running&&p.sources.has(e)?e.tValue:e.value,t),p&&!p.running&&p.sources.has(e)&&queueMicrotask(()=>{N(()=>{p&&(p.running=!0),g=f=e,ae(e,e.tValue,t),g=f=null},!1)})}function ae(e,t,n){let r,i=f,a=g;g=f=e;try{r=e.fn(t)}catch(t){return e.pure&&(p&&p.running?(e.tState=l,e.tOwned&&e.tOwned.forEach(I),e.tOwned=void 0):(e.state=l,e.owned&&e.owned.forEach(I),e.owned=null)),e.updatedAt=n+1,L(t)}finally{g=a,f=i}(!e.updatedAt||e.updatedAt<=n)&&(e.updatedAt!=null&&`observers`in e?ie(e,r,!0):p&&p.running&&e.pure?(p.sources.has(e)||(e.value=r),p.sources.add(e),e.tValue=r):e.value=r,e.updatedAt=n)}function j(e,t,n,r=l,i){let a={fn:e,state:r,updatedAt:null,owned:null,sources:null,sourceSlots:null,cleanups:null,value:t,owner:f,context:f?f.context:null,pure:n};if(p&&p.running&&(a.state=0,a.tState=r),f===null||f!==d&&(p&&p.running&&f.pure?f.tOwned?f.tOwned.push(a):f.tOwned=[a]:f.owned?f.owned.push(a):f.owned=[a]),h&&a.fn){let e=a.fn,[t,n]=x(void 0,{equals:!1}),r=h.factory(e,n);E(()=>r.dispose());let i,o=()=>D(n).then(()=>{i&&=(i.dispose(),void 0)});a.fn=n=>(t(),p&&p.running?(i||=h.factory(e,o),i.track(n)):r.track(n))}return a}function M(e){let t=p&&p.running;if((t?e.tState:e.state)===0)return;if((t?e.tState:e.state)===u)return P(e);if(e.suspense&&w(e.suspense.inFallback))return e.suspense.effects.push(e);let n=[e];for(;(e=e.owner)&&(!e.updatedAt||e.updatedAt<y);){if(t&&p.disposed.has(e))return;(t?e.tState:e.state)&&n.push(e)}for(let r=n.length-1;r>=0;r--){if(e=n[r],t){let t=e,i=n[r+1];for(;(t=t.owner)&&t!==i;)if(p.disposed.has(t))return}if((t?e.tState:e.state)===l)A(e);else if((t?e.tState:e.state)===u){let t=_;_=null,N(()=>P(e,n[0]),!1),_=t}}}function N(e,t){if(_)return e();let n=!1;t||(_=[]),v?n=!0:v=[],y++;try{let t=e();return oe(n),t}catch(e){n||(v=null),_=null,L(e)}}function oe(e){if(_&&=(m&&p&&p.running?ce(_):se(_),null),e)return;let t;if(p){if(!p.promises.size&&!p.queue.size){let e=p.sources,n=p.disposed;v.push.apply(v,p.effects),t=p.resolve;for(let e of v)`tState`in e&&(e.state=e.tState),delete e.tState;p=null,N(()=>{for(let e of n)I(e);for(let t of e){if(t.value=t.tValue,t.owned)for(let e=0,n=t.owned.length;e<n;e++)I(t.owned[e]);t.tOwned&&(t.owned=t.tOwned),delete t.tValue,delete t.tOwned,t.tState=0}O(!1)},!1)}else if(p.running){p.running=!1,p.effects.push.apply(p.effects,v),v=null,O(!0);return}}let n=v;v=null,n.length&&N(()=>c(n),!1),t&&t()}function se(e){for(let t=0;t<e.length;t++)M(e[t])}function ce(e){for(let t=0;t<e.length;t++){let n=e[t],r=p.queue;r.has(n)||(r.add(n),m(()=>{r.delete(n),N(()=>{p.running=!0,M(n)},!1),p&&(p.running=!1)}))}}function le(t){let r,i=0;for(r=0;r<t.length;r++){let e=t[r];e.user?t[i++]=e:M(e)}if(e.context){if(e.count){e.effects||=[],e.effects.push(...t.slice(0,i));return}n()}for(e.effects&&(e.done||!e.count)&&(t=[...e.effects,...t],i+=e.effects.length,delete e.effects),r=0;r<i;r++)M(t[r])}function P(e,t){let n=p&&p.running;n?e.tState=0:e.state=0;for(let r=0;r<e.sources.length;r+=1){let i=e.sources[r];if(i.sources){let e=n?i.tState:i.state;e===l?i!==t&&(!i.updatedAt||i.updatedAt<y)&&M(i):e===u&&P(i,t)}}}function F(e){let t=p&&p.running;for(let n=0;n<e.observers.length;n+=1){let r=e.observers[n];(t?!r.tState:!r.state)&&(t?r.tState=u:r.state=u,r.pure?_.push(r):v.push(r),r.observers&&F(r))}}function I(e){let t;if(e.sources)for(;e.sources.length;){let t=e.sources.pop(),n=e.sourceSlots.pop(),r=t.observers;if(r&&r.length){let e=r.pop(),i=t.observerSlots.pop();n<r.length&&(e.sourceSlots[i]=n,r[n]=e,t.observerSlots[n]=i)}}if(e.tOwned){for(t=e.tOwned.length-1;t>=0;t--)I(e.tOwned[t]);delete e.tOwned}if(p&&p.running&&e.pure)ue(e,!0);else if(e.owned){for(t=e.owned.length-1;t>=0;t--)I(e.owned[t]);e.owned=null}if(e.cleanups){for(t=e.cleanups.length-1;t>=0;t--)e.cleanups[t]();e.cleanups=null}p&&p.running?e.tState=0:e.state=0}function ue(e,t){if(t||(e.tState=0,p.disposed.add(e)),e.owned)for(let t=0;t<e.owned.length;t++)ue(e.owned[t])}function de(e){return e instanceof Error?e:Error(typeof e==`string`?e:`Unknown error`,{cause:e})}function fe(e,t,n){try{for(let n of t)n(e)}catch(e){L(e,n&&n.owner||null)}}function L(e,t=f){let n=s&&t&&t.context&&t.context[s],r=de(e);if(!n)throw r;v?v.push({fn(){fe(r,n,t)},state:l}):fe(r,n,t)}var pe=Symbol(`fallback`);function me(e){for(let t=0;t<e.length;t++)e[t]()}function he(e,t,n={}){let r=[],i=[],o=[],s=0,c=t.length>1?[]:null;return E(()=>me(o)),()=>{let l=e()||[],u=l.length,d,f;return l[a],w(()=>{let e,t,a,m,h,g,_,v,y;if(u===0)s!==0&&(me(o),o=[],r=[],i=[],s=0,c&&=[]),n.fallback&&(r=[pe],i[0]=b(e=>(o[0]=e,n.fallback())),s=1);else if(s===0){for(i=Array(u),f=0;f<u;f++)r[f]=l[f],i[f]=b(p);s=u}else{for(a=Array(u),m=Array(u),c&&(h=Array(u)),g=0,_=Math.min(s,u);g<_&&r[g]===l[g];g++);for(_=s-1,v=u-1;_>=g&&v>=g&&r[_]===l[v];_--,v--)a[v]=i[_],m[v]=o[_],c&&(h[v]=c[_]);for(e=new Map,t=Array(v+1),f=v;f>=g;f--)y=l[f],d=e.get(y),t[f]=d===void 0?-1:d,e.set(y,f);for(d=g;d<=_;d++)y=r[d],f=e.get(y),f!==void 0&&f!==-1?(a[f]=i[d],m[f]=o[d],c&&(h[f]=c[d]),f=t[f],e.set(y,f)):o[d]();for(f=g;f<u;f++)f in a?(i[f]=a[f],o[f]=m[f],c&&(c[f]=h[f],c[f](f))):i[f]=b(p);i=i.slice(0,s=u),r=l.slice(0)}return i});function p(e){if(o[f]=e,c){let[e,n]=x(f);return c[f]=n,t(l[f],e)}return t(l[f])}}}var ge=!1;function R(t,i){if(ge&&e.context){let a=e.context;n(r());let o=w(()=>t(i||{}));return n(a),o}return w(()=>t(i||{}))}var _e=e=>`Stale read from <${e}>.`;function z(e){let t=`fallback`in e&&{fallback:()=>e.fallback};return C(he(()=>e.each,e.children,t||void 0))}function B(e){let t=e.keyed,n=C(()=>e.when,void 0,void 0),r=t?n:C(n,void 0,{equals:(e,t)=>!e==!t});return C(()=>{let i=r();if(i){let a=e.children;return typeof a==`function`&&a.length>0?w(()=>a(t?i:()=>{if(!w(r))throw _e(`Show`);return n()})):a}return e.fallback},void 0,void 0)}var V=e=>C(()=>e());function ve(e,t,n){let r=n.length,i=t.length,a=r,o=0,s=0,c=t[i-1].nextSibling,l=null;for(;o<i||s<a;){if(t[o]===n[s]){o++,s++;continue}for(;t[i-1]===n[a-1];)i--,a--;if(i===o){let t=a<r?s?n[s-1].nextSibling:n[a-s]:c;for(;s<a;)e.insertBefore(n[s++],t)}else if(a===s)for(;o<i;)(!l||!l.has(t[o]))&&t[o].remove(),o++;else if(t[o]===n[a-1]&&n[s]===t[i-1]){let r=t[--i].nextSibling;e.insertBefore(n[s++],t[o++].nextSibling),e.insertBefore(n[--a],r),t[i]=n[a]}else{if(!l){l=new Map;let e=s;for(;e<a;)l.set(n[e],e++)}let r=l.get(t[o]);if(r!=null)if(s<r&&r<a){let c=o,u=1,d;for(;++c<i&&c<a&&!((d=l.get(t[c]))==null||d!==r+u);)u++;if(u>r-s){let i=t[o];for(;s<r;)e.insertBefore(n[s++],i)}else e.replaceChild(n[s++],t[o++])}else o++;else t[o++].remove()}}}var ye=`_$DX_DELEGATE`;function be(e,t,n,r={}){let i;return b(r=>{i=r,t===document?e():K(t,e(),t.firstChild?null:void 0,n)},r.owner),()=>{i(),t.textContent=``}}function H(e,t,n,r){let i,a=()=>{let t=r?document.createElementNS(`http://www.w3.org/1998/Math/MathML`,`template`):document.createElement(`template`);return t.innerHTML=e,n?t.content.firstChild.firstChild:r?t.firstChild:t.content.firstChild},o=t?()=>w(()=>document.importNode(i||=a(),!0)):()=>(i||=a()).cloneNode(!0);return o.cloneNode=o,o}function U(e,t=window.document){let n=t[ye]||(t[ye]=new Set);for(let r=0,i=e.length;r<i;r++){let i=e[r];n.has(i)||(n.add(i),t.addEventListener(i,Se))}}function W(e,t,n){q(e)||(n==null?e.removeAttribute(t):e.setAttribute(t,n))}function xe(e,t){q(e)||(t==null?e.removeAttribute(`class`):e.className=t)}function G(e,t,n,r){if(r)Array.isArray(n)?(e[`$$${t}`]=n[0],e[`$$${t}Data`]=n[1]):e[`$$${t}`]=n;else if(Array.isArray(n)){let r=n[0];e.addEventListener(t,n[0]=t=>r.call(e,n[1],t))}else e.addEventListener(t,n,typeof n!=`function`&&n)}function K(e,t,n,r){if(n!==void 0&&!r&&(r=[]),typeof t!=`function`)return J(e,t,r,n);S(r=>J(e,t(),r,n),r)}function q(t){return!!e.context&&!e.done&&(!t||t.isConnected)}function Se(t){if(e.registry&&e.events&&e.events.find(([e,n])=>n===t))return;let n=t.target,r=`$$${t.type}`,i=t.target,a=t.currentTarget,o=e=>Object.defineProperty(t,"target",{configurable:!0,value:e}),s=()=>{let e=n[r];if(e&&!n.disabled){let i=n[`${r}Data`];if(i===void 0?e.call(n,t):e.call(n,i,t),t.cancelBubble)return}return n.host&&typeof n.host!=`string`&&!n.host._$host&&n.contains(t.target)&&o(n.host),!0},c=()=>{for(;s()&&(n=n._$host||n.parentNode||n.host););};if(Object.defineProperty(t,"currentTarget",{configurable:!0,get(){return n||document}}),e.registry&&!e.done&&(e.done=_$HY.done=!0),t.composedPath){let e=t.composedPath();o(e[0]);for(let t=0;t<e.length-2&&(n=e[t],s());t++){if(n._$host){n=n._$host,c();break}if(n.parentNode===a)break}}else c();o(i)}function J(e,t,n,r,i){let a=q(e);if(a){!n&&(n=[...e.childNodes]);let t=[];for(let e=0;e<n.length;e++){let r=n[e];r.nodeType===8&&r.data.slice(0,2)===`!$`?r.remove():t.push(r)}n=t}for(;typeof n==`function`;)n=n();if(t===n)return n;let o=typeof t,s=r!==void 0;if(e=s&&n[0]&&n[0].parentNode||e,o===`string`||o===`number`){if(a||o===`number`&&(t=t.toString(),t===n))return n;if(s){let i=n[0];i&&i.nodeType===3?i.data!==t&&(i.data=t):i=document.createTextNode(t),n=X(e,n,r,i)}else n=n!==``&&typeof n==`string`?e.firstChild.data=t:e.textContent=t}else if(t==null||o===`boolean`){if(a)return n;n=X(e,n,r)}else if(o===`function`)return S(()=>{let i=t();for(;typeof i==`function`;)i=i();n=J(e,i,n,r)}),()=>n;else if(Array.isArray(t)){let o=[],c=n&&Array.isArray(n);if(Y(o,t,n,i))return S(()=>n=J(e,o,n,r,!0)),()=>n;if(a){if(!o.length)return n;if(r===void 0)return n=[...e.childNodes];let t=o[0];if(t.parentNode!==e)return n;let i=[t];for(;(t=t.nextSibling)!==r;)i.push(t);return n=i}if(o.length===0){if(n=X(e,n,r),s)return n}else c?n.length===0?Ce(e,o,r):ve(e,n,o):(n&&X(e),Ce(e,o));n=o}else if(t.nodeType){if(a&&t.parentNode)return n=s?[t]:t;if(Array.isArray(n)){if(s)return n=X(e,n,r,t);X(e,n,null,t)}else n==null||n===``||!e.firstChild?e.appendChild(t):e.replaceChild(t,e.firstChild);n=t}return n}function Y(e,t,n,r){let i=!1;for(let a=0,o=t.length;a<o;a++){let o=t[a],s=n&&n[e.length],c;if(!(o==null||o===!0||o===!1))if((c=typeof o)==`object`&&o.nodeType)e.push(o);else if(Array.isArray(o))i=Y(e,o,s)||i;else if(c===`function`)if(r){for(;typeof o==`function`;)o=o();i=Y(e,Array.isArray(o)?o:[o],Array.isArray(s)?s:[s])||i}else e.push(o),i=!0;else{let t=String(o);s&&s.nodeType===3&&s.data===t?e.push(s):e.push(document.createTextNode(t))}}return i}function Ce(e,t,n=null){for(let r=0,i=t.length;r<i;r++)e.insertBefore(t[r],n)}function X(e,t,n,r){if(n===void 0)return e.textContent=``;let i=r||document.createTextNode(``);if(t.length){let r=!1;for(let a=t.length-1;a>=0;a--){let o=t[a];if(i!==o){let t=o.parentNode===e;!r&&!a?t?e.replaceChild(i,o):e.insertBefore(i,n):t&&o.remove()}else r=!0}}else e.insertBefore(i,n);return[i]}var we=[{title:`What to do now?`,prompts:[{title:`Next Best Action`,template:`I need to decide what to work on right now. Analyze my tasks and recommend the SINGLE best thing to do next.
+
+Consider:
+1. Current time of day and my likely energy level
+2. Dependencies - what's blocking other work?
+3. Deadlines - what's truly urgent?
+4. Impact - what moves the needle most?
+5. Context - what can I realistically complete now?
+
+Give me:
+- ONE specific task to focus on
+- Why this task (2-3 bullet points)
+- First concrete action to start (under 2 minutes)
+- Expected time to complete`},{title:`90-Minute Power Block`,template:`Help me structure the next 90 minutes for maximum productivity.
+
+Review my tasks and create:
+
+**The ONE Thing** (15 words max)
+What single outcome would make this block a success?
+
+**Action Steps** (3-5 specific tasks)
+- [Exact action verb + specific deliverable]
+- Include time estimates for each
+
+**Success Metrics**
+How will I know I've succeeded? Be specific.
+
+**Potential Blockers**
+What might stop me? How do I prevent/handle it?
+
+Format as a flat markdown checklist I can follow without thinking.`},{title:`Quick Win Hunter`,template:`Find me 1-2 tasks I can complete in the next 30 minutes that will give me momentum.
+
+Criteria:
+- Can be FULLY completed (not just started)
+- Requires no external input or waiting
+- Has visible/tangible output
+- Moves a project forward OR removes a mental burden
+
+For each task, tell me:
+1. The specific task
+2. Time estimate (be realistic)
+3. What I'll have when done
+4. Why this creates momentum
+
+Give as a markdown checklist.`}]},{title:`Plan my day`,prompts:[{title:`Daily Blueprint`,template:`Create my daily plan. Be specific and realistic.
+
+**Non-Negotiables** (max 3)
+What MUST happen today no matter what?
+1. [Task] - [Time needed] - [When]
+2. 
+3. 
+
+**Energy Matching**
+Morning (high energy): [Which complex/creative task?]
+Afternoon (medium): [Which routine work?]
+Late day (low): [Which admin/cleanup task?]
+
+**Time Blocks**
+[Start-End]: [Specific task/outcome]
+Include 15-min buffers between major tasks
+
+**End-of-Day Win**
+One small task to complete last that will feel satisfying
+
+**Contingency**
+If I only have 2 hours today, which ONE task gets done?
+
+Output as a flat markdown checklist (- [ ] Task name) that I can paste into my task manager.`},{title:`Reality-Based Schedule`,template:`Build a schedule that actually works with my real life.
+
+First, identify:
+- Fixed commitments (meetings, appointments)
+- Realistic work windows between them
+- My actual (not ideal) energy patterns today
+
+Now create:
+
+**Protected Time** (1-2 blocks max)
+[Time]: [Most important work] - phone off, door closed
+
+**Batch Windows**
+[Time]: Communications (email, messages, calls)
+[Time]: Quick tasks under 15 min each
+[Time]: Admin/planning/review
+
+**Flex Buffer**
+30-60 minutes unscheduled for the unexpected
+
+Give me exact times and specific tasks, not categories.
+Output as a flat markdown checklist (- [ ] Task name) I can paste into my task manager.`},{title:`Minimum Viable Day`,template:`I'm overwhelmed. Help me plan the absolute minimum for a successful day.
+
+**The ONE Thing**
+If only one task gets done today, which creates the most relief or progress?
+Task: [Specific task]
+Time needed: [Realistic estimate]
+When: [Specific time block]
+
+**Two Supporting Tasks**
+What two smaller tasks would most support the main one?
+1. [15-30 min task]
+2. [15-30 min task]
+
+**Maintenance Minimum**
+What's the bare minimum to keep things from falling apart?
+- [5-10 min critical check-in]
+- [5-10 min critical response]
+
+Total time commitment: [Should be under 4 focused hours]
+
+Everything else can wait.
+Output as a simple markdown checklist.`}]},{title:`Plan my week`,prompts:[{title:`Weekly Big Rocks`,template:`Define my week's priorities using the Big Rocks principle.
+
+**Three Big Rocks** (major outcomes)
+What three things, if completed, would make this a successful week?
+1. [Specific, measurable outcome] - Due: [Day]
+2. [Specific, measurable outcome] - Due: [Day]
+3. [Specific, measurable outcome] - Due: [Day]
+
+**Rock Schedule**
+Monday: [Which rock gets focus? How many hours?]
+Tuesday: [Which rock gets focus? How many hours?]
+Wednesday: [Which rock gets focus? How many hours?]
+Thursday: [Which rock gets focus? How many hours?]
+Friday: [Wrap-up, review, or overflow?]
+
+**Pebbles** (important but smaller)
+5-7 tasks that support the big rocks or maintain momentum
+- [Task]: [Which day, how long?]
+
+**Sand** (nice if time)
+Tasks to do ONLY after rocks and pebbles are handled
+
+What gets cut if I lose a day this week?
+
+Provide as a flat markdown checklist for my task manager.`},{title:`Realistic Week Planner`,template:`Plan a week that accounts for how weeks actually go.
+
+**Reality Check**
+- Actual available hours: [Subtract meetings, commute, breaks]
+- Energy reality: [When am I actually productive?]
+- Interruption buffer: [How much time gets eaten by unexpected?]
+
+**Must-Win Battles**
+Maximum 3 things that MUST be done this week:
+1. [Task] - [Hours needed] - [Spread across which days?]
+2. 
+3. 
+
+**Daily Minimums**
+What's the ONE thing for each day that defines success?
+Mon: [30-90 min task]
+Tue: [30-90 min task]
+Wed: [30-90 min task]
+Thu: [30-90 min task]
+Fri: [30-90 min task]
+
+**Overflow Plan**
+Where does unfinished work go?
+What can be dropped without consequence?
+
+Give me a flat markdown checklist for the week.`}]},{title:`Help, I'm procrastinating`,prompts:[{title:`Procrastination Buster`,template:`I'm stuck. Get me unstuck with ONE specific action.
+
+Looking at my tasks, identify:
+
+**The Real Blocker** (pick the most likely)
+□ Fear: "What if I fail/succeed/get judged?"
+□ Confusion: "I don't know where to start"
+□ Overwhelm: "This is too big"
+□ Perfectionism: "It won't be good enough"
+□ Boredom: "This feels pointless"
+
+**The Antidote**
+Based on the blocker, give me:
+1. The absolute smallest next step (under 2 minutes)
+2. Exact words/action to take (not concepts)
+3. What to do immediately after that step
+
+**Permission Slip**
+Write me a 1-sentence permission to do this imperfectly.
+
+**Momentum Builder**
+If this works, what's the next 10-minute task?
+
+Output as a simple markdown checklist.`},{title:`2-Minute Momentum`,template:`Pick ONE task I'm avoiding. Break it down to start NOW.
+
+**The Task:** [Identify the specific task I'm avoiding most]
+
+**2-Minute Start** 
+Not "work on X" but the EXACT first action:
+- Open [specific file/app/website]
+- Write [specific first sentence/line]
+- Send [specific message to specific person]
+- Move [specific thing to specific place]
+
+**Remove Friction**
+What do I need to close/hide/prepare right now?
+- Close: [Specific tabs/apps]
+- Prepare: [Specific materials/files]
+- Set timer for: [Exactly 2 minutes]
+
+**The Deal**
+"Do ONLY this 2-minute task. Permission to stop after. No commitment beyond that."
+
+**If Momentum Happens**
+Next 2-minute task ready: [Specific action]
+
+Give me ultra-specific 2-minute actions as a markdown checklist.`},{title:`Pattern Interrupt`,template:`I'm in a procrastination spiral. Break the pattern.
+
+**Physical Reset** (pick one, do now)
+□ Stand up and stretch for 30 seconds
+□ Get a glass of water
+□ Walk to a different room
+□ Do 5 push-ups or jumping jacks
+
+**Mental Reset**
+Answer: "What would this look like if it were easy?"
+[Your response]
+
+**The Ridiculous Version**
+What's the laughably small version of this task?
+Example: Instead of "write report" → "write the title"
+Your task: [Make it absurdly small]
+
+**Time Boxing**
+"I'll work on this for exactly 10 minutes, then I'm free."
+Start time: [Now]
+End time: [Now + 10 min]
+Task: [The ridiculous version]
+
+**Reward Ready**
+What will you do immediately after those 10 minutes?
+[Specific reward/break activity]`}]},{title:`Better Habits`,prompts:[{title:`Micro Habit Designer`,template:`Design a habit so small it's impossible to fail.
+
+**The Habit I Want:** [End goal habit]
+
+**The 2-Minute Version:** [Scale it down to 2 minutes max]
+
+**The Stack Formula:**
+"After I [existing habit], I will [new 2-min habit]"
+
+**Make It Obvious**
+□ Visual cue: [What will I see?]
+□ Phone reminder at: [Specific time]
+□ Physical prep: [What to set out tonight?]
+
+**The First Week Plan**
+Days 1-3: [Even tinier version - 30 seconds]
+Days 4-7: [The 2-minute version]
+Week 2: [Slightly expanded - 3-5 minutes]
+
+**Track It Simply**
+□ Check off on: [Calendar/app/paper - pick ONE]
+□ Celebration: [5-second celebration after doing it]
+
+**If I Miss a Day**
+"Never miss twice. Do 30-second version to maintain chain."`},{title:`Keystone Habit Finder`,template:`Identify the ONE habit that will trigger positive chain reactions.
+
+**Potential Keystone Habits**
+Analyze which ONE of these would impact the most areas:
+□ Morning movement (affects: energy, mood, discipline)
+□ Evening planning (affects: next day, sleep, anxiety)
+□ Meal prep (affects: health, time, decisions)
+□ Daily reading (affects: learning, wind-down, screen time)
+□ Time blocking (affects: productivity, boundaries, focus)
+
+**Your Keystone Selection**
+The ONE to focus on: [Choose from above or identify your own]
+
+**Ripple Effects**
+If I do this consistently, what else improves?
+1. [Secondary benefit]
+2. [Secondary benefit]
+3. [Secondary benefit]
+
+**30-Day Experiment**
+Start date: [Specific date]
+Minimum daily dose: [5-15 minutes max]
+Success metric: [What changes am I tracking?]
+
+Focus ONLY on this one habit for 30 days.`},{title:`Bad Habit Replacer`,template:`Replace a bad habit with a better one using the same trigger.
+
+**The Habit to Change:** [Specific bad habit]
+
+**The Trigger Audit**
+When does this happen?
+- Time: [When in the day?]
+- Location: [Where am I?]
+- Emotion: [What am I feeling?]
+- Preceding action: [What happens right before?]
+
+**The Need It Meets**
+What am I really seeking?
+□ Stress relief
+□ Stimulation/excitement
+□ Connection
+□ Escape/numbing
+□ Energy boost
+□ Reward/pleasure
+
+**The Replacement**
+New behavior that meets the SAME need:
+[Specific alternative action]
+
+**Implementation**
+When [trigger] happens,
+Instead of [bad habit],
+I will [replacement behavior],
+Because it gives me [same reward].
+
+**Friction Design**
+Make bad habit harder: [Specific action]
+Make good habit easier: [Specific action]`}]},{title:`Various`,prompts:[{title:`Quick Decision Maker`,template:`I need to make a decision. Help me choose in the next 5 minutes.
+
+**The Decision:** [State it in one sentence]
+
+**Real Options** (2-4 max)
+A: [Option]
+B: [Option]
+C: [Option if applicable]
+
+**10-10-10 Test**
+How will I feel about each option:
+- In 10 minutes?
+- In 10 months?
+- In 10 years?
+
+**Gut Check**
+If I had to decide in 10 seconds: [Which option?]
+What's my hesitation about that choice?
+
+**The Decider**
+Which option:
+- Aligns with my values? [A/B/C]
+- I'd recommend to a friend? [A/B/C]
+- I'll regret NOT trying? [A/B/C]
+- Is reversible if wrong? [A/B/C]
+
+**Decision:** [Choose now]
+**First action:** [What do I do in next hour?]`},{title:`Problem Solver Express`,template:`Solve my problem in 5 steps or less.
+
+**Problem in one sentence:** [What's wrong?]
+
+**Why this matters:** [Impact if unsolved]
+
+**Root Cause** (pick most likely)
+□ Resource issue (time/money/tools)
+□ Knowledge gap (don't know how)
+□ System failure (process broken)
+□ People issue (communication/alignment)
+□ External blocker (waiting on others)
+
+**Three Solutions** (brainstorm fast)
+1. Quick fix: [Band-aid solution for now]
+2. Proper fix: [Real solution, more effort]
+3. Workaround: [Different approach entirely]
+
+**The Choice**
+Going with: [Pick one]
+Because: [One reason]
+First step: [Specific action today]
+Success looks like: [Measurable outcome]`},{title:`Stuck → Unstuck`,template:`I'm stuck on something. Get me moving in any direction.
+
+**Where I'm Stuck:** [Describe in 1-2 sentences]
+
+**Pattern Breaker** (do one now)
+□ Explain it to a rubber duck
+□ Draw it instead of writing
+□ Work backwards from the end
+□ Do the opposite for 5 minutes
+□ Ask "What would [expert] do?"
+□ List 10 bad solutions quickly
+
+**New Angle**
+What if:
+- This were easy? [What would I do?]
+- I had unlimited resources? [What would I do?]
+- I had only 1 hour? [What would I do?]
+- Someone else had to do it? [What would I tell them?]
+
+**Minimum Viable Progress**
+Smallest step that's still progress: [Define it]
+Time needed: [5-15 minutes max]
+Do it when: [Specific time today]
+
+**If Still Stuck**
+Who can help: [Specific person]
+What to ask: [Specific question]`},{title:`Weekly Review Template`,template:`Quick weekly review. Keep it under 15 minutes.
+
+**Last Week's Wins** (3 max)
+1. [What went well?]
+2. [What went well?]
+3. [What went well?]
+
+**Lessons Learned** (2 max)
+1. [What didn't work?] → [What to try instead]
+2. [What surprised me?] → [How to adapt]
+
+**Progress Check**
+Main goal progress: [X%]
+On track? [Yes/No]
+If no, what ONE thing needs to change?
+
+**Next Week's Focus**
+THE priority: [One main outcome]
+Supporting tasks: [2-3 that enable the priority]
+What I'm saying NO to: [Specifically]
+
+**System Tweaks**
+One small process improvement: [What and how]
+
+**Energy Management**
+When was I most productive? [Day/time]
+When was I least productive? [Day/time]
+Schedule adjustment: [What to change]`}]}],Te=H(`<button>`),Z=e=>{let t=e.onClick?`card-clickable`:``,n=e.class||``;return(()=>{var r=Te();return G(r,`click`,e.onClick,!0),K(r,()=>e.children),S(i=>{var a=`card ${t} ${n}`.trim(),o=!e.onClick;return a!==i.e&&xe(r,i.e=a),o!==i.t&&(r.disabled=i.t=o),i},{e:void 0,t:void 0}),r})()};U([`click`]);var Ee=H(`<div class="intro page-fade"><h2>AI Productivity Prompts</h2><p class=text-muted>Choose what you need help with:`),De=H(`<h3 class=text-primary>My Custom Prompts`),Oe=H(`<p class=text-muted>Create & manage your own prompts`),ke=H(`<div class="category-grid page-fade">`),Ae=H(`<h3 class=text-primary>`),je=H(`<p class=text-muted> prompts`),Me=e=>[Ee(),(()=>{var t=ke();return K(t,R(z,{each:we,children:t=>R(Ne,{category:t,onClick:()=>e.onSelectCategory(t)})}),null),K(t,R(Z,{get onClick(){return e.onCustomPromptsClick},class:`custom-prompts-card`,get children(){return[De(),Oe()]}}),null),t})()],Ne=e=>R(Z,{get onClick(){return e.onClick},class:`category-card`,get children(){return[(()=>{var t=Ae();return K(t,()=>e.category.title),t})(),(()=>{var t=je(),n=t.firstChild;return K(t,()=>e.category.prompts.length,n),t})()]}}),Pe=H(`<div class="category-container page-fade"><div class=selected-category><h2 class=text-primary></h2></div><h3>Available Prompts:</h3><div class=prompt-list>`),Fe=H(`<h4 class=prompt-title>`),Ie=e=>(()=>{var t=Pe(),n=t.firstChild,r=n.firstChild,i=n.nextSibling.nextSibling;return K(r,()=>e.category.title),K(i,R(z,{get each(){return e.category.prompts},children:t=>R(Z,{onClick:()=>e.onSelectPrompt(t),class:`prompt-item`,get children(){var e=Fe();return K(e,()=>t.title),e}})})),t})(),Le=(e,t)=>t?`${e}
+
+Current tasks:
+${t}`:e,Re=e=>e.map(e=>`- [ ] ${e.title}`).join(`
+`),ze=(e,t=80)=>{if(!e)return`No preview available`;let n=e.split(`
+`)[0]?.trim()||``;return n.length>t?n.substring(0,t)+`...`:n},Be=async e=>{try{return await navigator.clipboard.writeText(e),!0}catch(e){return console.error(`Failed to copy to clipboard:`,e),!1}},Ve=e=>{let t=e.replace(/\./g,` `).replace(/-/g,` `);return`https://chat.openai.com/?q=${encodeURI(t)}`},He=(e,t)=>{if(!e.startsWith(`project-`))return!0;let n=e.replace(`project-`,``);return t.some(e=>e.id===n)},Ue=(e,t)=>{let[n,r]=x(i());function i(){try{let n=localStorage.getItem(e);return n?JSON.parse(n):t}catch(n){return console.error(`Error reading localStorage key "${e}":`,n),t}}return[n,t=>{try{let i=t instanceof Function?t(n()):t;r(i),localStorage.setItem(e,JSON.stringify(i))}catch(t){console.error(`Error setting localStorage key "${e}":`,t)}}]},We=()=>{let e=window.PluginAPI;return{getTasks:()=>e?.getTasks?.(),getCurrentContextTasks:()=>e?.getCurrentContextTasks?.(),getAllProjects:()=>e?.getAllProjects?.()}},Ge=()=>{let[e,t]=x(!1),n=We();return{isLoading:e,loadTaskCounts:async()=>{t(!0);let e={},r={},i=[];try{let[t,a,o]=await Promise.all([n.getTasks(),n.getCurrentContextTasks(),n.getAllProjects()]);if(t){let n=t.filter(e=>!e.isDone);e.all=n.length,r.all=n.map(e=>e.title);let a=new Date,s=`${a.getFullYear()}-${String(a.getMonth()+1).padStart(2,`0`)}-${String(a.getDate()).padStart(2,`0`)}`,c=n.filter(e=>e.timeSpentOnDay?.[s]>0||new Date(e.created).toDateString()===a.toDateString());if(e.today=c.length,r.today=c.map(e=>e.title),o){let t=o.filter(e=>!e.isArchived);i.push(...t.map(e=>({id:e.id,title:e.title}))),t.forEach(t=>{let i=n.filter(e=>e.projectId===t.id);e[`project-${t.id}`]=i.length,r[`project-${t.id}`]=i.map(e=>e.title)})}}if(a){let t=a.filter(e=>!e.isDone);e.context=t.length,r.context=t.map(e=>e.title)}}catch(e){console.error(`Error loading task data:`,e)}finally{t(!1)}return{counts:e,previews:r,projects:i}},getTasksForSelection:async e=>{let t=We(),n=[];try{if(e===`today`){let e=await t.getTasks();if(e){let t=new Date,r=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,`0`)}-${String(t.getDate()).padStart(2,`0`)}`;n=e.filter(e=>e.isDone?!1:e.timeSpentOnDay?.[r]>0||new Date(e.created).toDateString()===t.toDateString())}}else if(e===`context`){let e=await t.getCurrentContextTasks();e&&(n=e.filter(e=>!e.isDone))}else if(e===`all`){let e=await t.getTasks();e&&(n=e.filter(e=>!e.isDone))}else if(e.startsWith(`project-`)){let r=e.replace(`project-`,``),i=await t.getTasks();i&&(n=i.filter(e=>!e.isDone&&e.projectId===r))}}catch(e){console.error(`Error fetching tasks for selection:`,e)}return n}}},Ke=H(`<button>`),Q=e=>{let t=()=>{let t=e.class||``;switch(e.variant){case`back`:case`secondary`:return`btn-outline ${t}`.trim();default:return`btn-primary ${t}`.trim()}};return(()=>{var n=Ke();return G(n,`click`,e.onClick,!0),K(n,()=>e.children),S(r=>{var i=t(),a=e.disabled,o=e.title;return i!==r.e&&xe(n,r.e=i),a!==r.t&&(n.disabled=r.t=a),o!==r.a&&W(n,`title`,r.a=o),r},{e:void 0,t:void 0,a:void 0}),n})()};U([`click`]);var qe=H(`<div class=loading-container><p class=text-muted>`),Je=e=>(()=>{var t=qe(),n=t.firstChild;return K(n,()=>e.message||`Loading...`),t})(),Ye=H(`<span class="task-count-info text-muted">No tasks will be included`),Xe=H(`<div class=page-fade><div class=selected-prompt-header><h2 class=text-primary></h2></div><div class=prompt-options><label class=dropdown-label>Include tasks in prompt:<select class=task-dropdown><option value=none>No tasks</option><option value=today>Today's tasks (<!> tasks)</option><option value=context>Current project/context (<!> tasks)</option><optgroup label="Individual Projects"></optgroup><option value=all>All tasks (<!> tasks)</option></select></label><div class=task-preview></div></div><textarea class=prompt-text readonly rows=15></textarea><div class=prompt-actions><a class=chatgpt-button target=_blank rel="noopener noreferrer">🤖 Open in ChatGPT`),Ze=H(`<option> (<!> tasks)`),Qe=H(`<span class="task-count-info text-muted">No tasks available for this selection`),$e=H(`<div class=task-count-header> (<!>):`),et=H(`<div class=task-preview-more>...and <!> more`),tt=H(`<div class=task-preview-list>`),nt=H(`<div class=task-preview-content>`),rt=H(`<div class=task-preview-item>• `),it=`ai-productivity-task-selection`,at=e=>{let[t,n]=Ue(it,`none`),[r,i]=x({}),[a,o]=x({}),[s,c]=x([]),[l,u]=x(``),[d,f]=x(`📋 Copy to clipboard`),{isLoading:p,loadTaskCounts:m,getTasksForSelection:h}=Ge(),g=async()=>{let{counts:e,previews:t,projects:n}=await m();i(e),o(t),c(n)},_=()=>{He(t(),s())||n(`none`)},v=async()=>{let n=e.selectedPrompt?.prompt;if(!n)return;let r=``,i=t();if(i!==`none`){let e=await h(i);e.length>0&&(r=Re(e))}let a=Le(n.template,r);u(a),e.onUpdatePrompt(a)},y=async e=>{n(e),await v()},b=async()=>{await Be(l())&&(f(`Copied!`),setTimeout(()=>f(`📋 Copy to clipboard`),1500))},ee=()=>{let e=t();return e===`today`?`Today's tasks`:e===`context`?`Context tasks`:e===`all`?`All tasks`:e.startsWith(`project-`)?s().find(t=>`project-${t.id}`===e)?.title||`Project`:``};return T(async()=>{await g(),_(),await v()}),(()=>{var n=Xe(),i=n.firstChild,o=i.firstChild,c=i.nextSibling,u=c.firstChild,f=u.firstChild.nextSibling,m=f.firstChild.nextSibling,h=m.firstChild.nextSibling;h.nextSibling;var g=m.nextSibling,_=g.firstChild.nextSibling;_.nextSibling;var v=g.nextSibling,x=v.nextSibling,C=x.firstChild.nextSibling;C.nextSibling;var w=u.nextSibling,T=c.nextSibling,E=T.nextSibling,D=E.firstChild;return K(o,()=>e.selectedPrompt.prompt.title),f.addEventListener(`change`,e=>y(e.target.value)),K(m,()=>r().today||0,h),K(g,()=>r().context||0,_),K(v,R(z,{get each(){return s()},children:e=>(()=>{var t=Ze(),n=t.firstChild,i=n.nextSibling;return i.nextSibling,K(t,()=>e.title,n),K(t,()=>r()[`project-${e.id}`]||0,i),S(()=>t.value=`project-${e.id}`),t})()})),K(x,()=>r().all||0,C),K(w,R(B,{get when(){return p()},get children(){return R(Je,{message:`Loading tasks...`})}}),null),K(w,R(B,{get when(){return!p()},get children(){return[R(B,{get when(){return t()===`none`},get children(){return Ye()}}),R(B,{get when(){return t()!==`none`},get children(){return R(ot,{get selection(){return t()},get previews(){return a()},get counts(){return r()},get displayName(){return ee()}})}})]}}),null),K(E,R(Q,{onClick:b,get children(){return d()}}),D),S(()=>W(D,`href`,Ve(l()))),S(()=>f.value=t()),S(()=>T.value=l()),n})()},ot=e=>{let t=()=>e.previews[e.selection]||[],n=()=>t().length===0;return(()=>{var r=nt();return K(r,R(B,{get when(){return n()},get children(){return Qe()}}),null),K(r,R(B,{get when(){return!n()},get children(){return[(()=>{var t=$e(),n=t.firstChild,r=n.nextSibling;return r.nextSibling,K(t,()=>e.displayName,n),K(t,()=>e.counts[e.selection]||0,r),t})(),(()=>{var e=tt();return K(e,R(z,{get each(){return t().slice(0,3)},children:e=>(()=>{var t=rt();return t.firstChild,K(t,e,null),t})()}),null),K(e,R(B,{get when(){return t().length>3},get children(){var e=et(),n=e.firstChild.nextSibling;return n.nextSibling,K(e,()=>t().length-3,n),e}}),null),e})()]}}),null),r})()},st=`ai-productivity-custom-prompts`,ct=1,lt=class e{constructor(){this.pluginAPI=window.PluginAPI}static getInstance(){return e.instance||=new e,e.instance}async loadPrompts(){try{if(!this.pluginAPI?.loadSyncedData)return console.warn(`loadSyncedData not available, using localStorage fallback`),this.loadFromLocalStorage();let e=await this.pluginAPI.loadSyncedData();return e?(JSON.parse(e).prompts||[]).filter(e=>e&&typeof e==`object`&&typeof e.title==`string`&&typeof e.template==`string`):[]}catch(e){return console.error(`Error loading custom prompts:`,e),this.loadFromLocalStorage()}}async savePrompts(e){let t={prompts:e,version:ct};try{if(!this.pluginAPI?.persistDataSynced){console.warn(`persistDataSynced not available, using localStorage fallback`),this.saveToLocalStorage(e);return}await this.pluginAPI.persistDataSynced(JSON.stringify(t))}catch(t){console.error(`Error saving custom prompts:`,t),this.saveToLocalStorage(e)}}async addPrompt(e,t){let n=await this.loadPrompts();n.push({title:e,template:t}),await this.savePrompts(n)}async updatePrompt(e,t,n){let r=await this.loadPrompts();if(e<0||e>=r.length)throw Error(`Prompt index out of range`);r[e]={title:t,template:n},await this.savePrompts(r)}async deletePrompt(e){let t=await this.loadPrompts();if(e<0||e>=t.length)throw Error(`Prompt index out of range`);t.splice(e,1),await this.savePrompts(t)}loadFromLocalStorage(){try{let e=localStorage.getItem(st);return e?(JSON.parse(e).prompts||[]).filter(e=>e&&typeof e==`object`&&typeof e.title==`string`&&typeof e.template==`string`):[]}catch(e){return console.error(`Error loading from localStorage:`,e),[]}}saveToLocalStorage(e){try{let t={prompts:e,version:ct};localStorage.setItem(st,JSON.stringify(t))}catch(e){console.error(`Error saving to localStorage:`,e)}}},ut=H(`<div class=empty-state><p class=text-muted>`),dt=H(`<p class=text-muted>`),ft=e=>(()=>{var t=ut(),n=t.firstChild;return K(n,()=>e.title),K(t,(()=>{var t=V(()=>!!e.message);return()=>t()&&(()=>{var t=dt();return K(t,()=>e.message),t})()})(),null),K(t,()=>e.action,null),t})(),pt=H(`<div class=page-fade><div class=custom-prompts-header><h2 class=text-primary>My Custom Prompts`),mt=H(`<div class=custom-prompts-list>`),ht=H(`<div class="custom-prompt-card card"><div class=custom-prompt-header><h3 class=prompt-title></h3><div class=prompt-actions></div></div><div class=prompt-preview><p class=text-muted></p></div><div class=prompt-card-actions>`),gt=e=>{let[t,n]=x([]),[r,i]=x(!1),a=lt.getInstance(),o=async()=>{i(!0);try{n(await a.loadPrompts())}catch(e){console.error(`Error loading custom prompts:`,e)}finally{i(!1)}},s=async e=>{let n=t()[e];if(confirm(`Delete prompt "${n.title}"? This cannot be undone.`))try{await a.deletePrompt(e),await o()}catch(e){console.error(`Error deleting prompt:`,e),alert(`Error deleting prompt. Please try again.`)}},c=()=>R(Q,{onClick:()=>e.onEditPrompt(null),children:`➕ Add Custom Prompt`});return T(o),(()=>{var n=pt(),i=n.firstChild;return i.firstChild,K(i,R(c,{}),null),K(n,(()=>{var n=V(()=>!!r());return()=>n()?R(Je,{message:`Loading custom prompts...`}):V(()=>t().length===0)()?R(ft,{title:`No custom prompts yet.`,message:`Create your first custom prompt to get started!`,get action(){return R(c,{})}}):(()=>{var n=mt();return K(n,R(z,{get each(){return t()},children:(t,n)=>R(_t,{prompt:t,get index(){return n()},onSelect:()=>e.onSelectPrompt(t,n()),onEdit:()=>e.onEditPrompt(t,n()),onDelete:()=>s(n())})})),n})()})(),null),n})()},_t=e=>(()=>{var t=ht(),n=t.firstChild,r=n.firstChild,i=r.nextSibling,a=n.nextSibling,o=a.firstChild,s=a.nextSibling;return K(r,()=>e.prompt.title),K(i,R(Q,{variant:`secondary`,get onClick(){return e.onEdit},title:`Edit prompt`,children:`✏️`}),null),K(i,R(Q,{variant:`secondary`,get onClick(){return e.onDelete},title:`Delete prompt`,children:`🗑️`}),null),K(o,()=>ze(e.prompt.template)),K(s,R(Q,{get onClick(){return e.onSelect},children:`Use This Prompt`})),t})(),vt=H(`<div class=page-fade><div class=editor-header><h2 class=text-primary></h2></div><div class=editor-container><div class=editor-instructions><p class=text-muted>Create a custom prompt template. Your current tasks will be automatically appended when you use this prompt.</p><p class=text-muted><strong>Tip:</strong> Press Ctrl+Enter (or Cmd+Enter) to save quickly.</p></div><div class=editor-field><label for=prompt-title class=field-label>Prompt Title:</label><input id=prompt-title type=text class=prompt-title-input placeholder="e.g., Daily Priority Planner"autocomplete=off></div><div class=editor-field><label for=prompt-textarea class=field-label>Prompt Template:</label><textarea id=prompt-textarea class=prompt-textarea placeholder="Enter your custom prompt here... 
+
+Example:
+Help me prioritize my tasks for maximum impact today. Consider:
+- Urgency vs importance
+- Dependencies between tasks  
+- My current energy level
+- Available time blocks
+
+Give me a specific action plan with time estimates."rows=12 autocomplete=off></textarea></div><div class=editor-actions><button class=btn-outline>Cancel</button><button class=btn-primary>`),yt=e=>{let[t,n]=x(``),[r,i]=x(``),[a,o]=x(!1),s=lt.getInstance(),c=()=>e.prompt!==null;T(()=>{e.prompt&&(n(e.prompt.title),i(e.prompt.template))});let l=async()=>{let n=t().trim(),i=r().trim();if(!n){alert(`Please enter a title for your prompt.`);return}if(!i){alert(`Please enter a prompt template.`);return}o(!0);try{c()&&e.index!==void 0?await s.updatePrompt(e.index,n,i):await s.addPrompt(n,i),e.onSave()}catch(e){console.error(`Error saving prompt:`,e),alert(`Error saving prompt. Please try again.`)}finally{o(!1)}},u=e=>{(e.ctrlKey||e.metaKey)&&e.key===`Enter`&&(e.preventDefault(),l())};return(()=>{var o=vt(),s=o.firstChild,d=s.firstChild,f=s.nextSibling.firstChild.nextSibling,p=f.firstChild.nextSibling,m=f.nextSibling,h=m.firstChild.nextSibling,g=m.nextSibling.firstChild,_=g.nextSibling;return K(d,()=>c()?`Edit Custom Prompt`:`Create Custom Prompt`),p.$$input=e=>n(e.currentTarget.value),h.$$keydown=u,h.$$input=e=>i(e.currentTarget.value),W(h,`spellcheck`,!0),G(g,`click`,e.onCancel,!0),_.$$click=l,K(_,(()=>{var e=V(()=>!!a());return()=>e()?`Saving...`:c()?`Update Prompt`:`Save Prompt`})()),S(e=>{var n=a(),i=a()||!t().trim()||!r().trim();return n!==e.e&&(g.disabled=e.e=n),i!==e.t&&(_.disabled=e.t=i),e},{e:void 0,t:void 0}),S(()=>p.value=t()),S(()=>h.value=r()),o})()};U([`input`,`keydown`,`click`]);var bt=()=>{let[e,t]=x(`home`),[n,r]=x(null),[i,a]=x(null),[o,s]=x(null),[c,l]=x(null);return{currentView:e,selectedCategory:n,selectedPrompt:i,selectedCustomPrompt:o,editingPrompt:c,navigateToCategory:e=>{r(e),t(`category`)},navigateToPrompt:e=>{let r=n();r&&(a({category:r,prompt:e}),t(`prompt`))},navigateToCustomPrompts:()=>{t(`custom`)},navigateToCustomPrompt:(e,n)=>{s({prompt:e,index:n}),a({category:{title:`Custom Prompts`,prompts:[]},prompt:{title:e.title,template:e.template}}),t(`prompt`)},navigateToCustomPromptEditor:(e,n)=>{l({prompt:e,index:n}),t(`custom-editor`)},navigateBack:()=>{let n=e();n===`prompt`?o()?(t(`custom`),a(null),s(null)):(t(`category`),a(null)):n===`category`?(t(`home`),r(null)):n===`custom`?t(`home`):n===`custom-editor`&&(t(`custom`),l(null))},saveCustomPrompt:()=>{t(`custom`),l(null)},cancelCustomPromptEdit:()=>{t(`custom`),l(null)}}},xt=H(`<header class="header page-fade">`),St=H(`<div class=app><main class=main>`),Ct=()=>{let[e,t]=x(``),{currentView:n,selectedCategory:r,selectedPrompt:i,editingPrompt:a,navigateToCategory:o,navigateToPrompt:s,navigateToCustomPrompts:c,navigateToCustomPrompt:l,navigateToCustomPromptEditor:u,navigateBack:d,saveCustomPrompt:f,cancelCustomPromptEdit:p}=bt(),m=e=>{t(e)},h=()=>n()!==`home`;return(()=>{var e=St(),t=e.firstChild;return K(e,R(B,{get when(){return h()},get children(){var e=xt();return K(e,R(Q,{variant:`back`,onClick:d,children:`← Back`})),e}}),t),K(t,R(B,{get when(){return n()===`home`},get children(){return R(Me,{onSelectCategory:o,onCustomPromptsClick:c})}}),null),K(t,R(B,{get when(){return V(()=>n()===`category`)()&&r()},get children(){return R(Ie,{get category(){return r()},onSelectPrompt:s})}}),null),K(t,R(B,{get when(){return V(()=>n()===`prompt`)()&&i()},get children(){return R(at,{get selectedPrompt(){return i()},onUpdatePrompt:m})}}),null),K(t,R(B,{get when(){return n()===`custom`},get children(){return R(gt,{onSelectPrompt:l,onEditPrompt:u})}}),null),K(t,R(B,{get when(){return n()===`custom-editor`},get children(){return R(yt,{get prompt(){return a()?.prompt||null},get index(){return a()?.index},onSave:f,onCancel:p})}}),null),e})()},wt=document.getElementById(`root`);function $(){window.PluginAPI===void 0?setTimeout($,100):wt&&be(()=>R(Ct,{}),wt)}$();</script>
+    <style>.app{min-height:100vh;padding:var(--s2);flex-direction:column;display:flex}.header{margin-bottom:var(--s2);justify-content:space-between;align-items:center;display:flex}.header h1{margin:0}.main{flex:1;position:relative;overflow:hidden}.intro{text-align:center;margin-bottom:var(--s3)}.category-grid{gap:var(--s2);margin-top:var(--s3);grid-template-columns:repeat(auto-fill,minmax(250px,1fr));display:grid}.category-card p{margin:0}.custom-prompts-card{border-left:4px solid var(--c-accent);background:linear-gradient(135deg, color-mix(in srgb, var(--c-accent) 10%, transparent), color-mix(in srgb, var(--c-accent) 5%, transparent))}.custom-prompts-card:hover{border-color:var(--c-accent);transform:translateY(-3px)}.category-container{max-width:800px;margin:0 auto}.selected-category{padding:var(--s2) 0;text-align:center;border-bottom:1px solid var(--divider-color);margin-bottom:var(--s3)}.selected-category h2{margin:0}.prompt-list{gap:var(--s);flex-direction:column;display:flex}.prompt-item{padding:var(--s2);cursor:pointer}.prompt-item:hover{box-shadow:var(--whiteframe-shadow-4dp);border-color:var(--c-primary);transform:translateY(-2px)}.prompt-title{margin:0;font-weight:600}.prompt-container{max-width:800px;margin:0 auto}.selected-prompt-header{padding:var(--s2) 0;text-align:center}.selected-prompt-header h2{margin:0 0 var(--s) 0}.selected-prompt-header p{margin:0}.generated-prompt{padding:var(--s3)}.generated-prompt h3{color:var(--c-primary)}.prompt-options{margin-bottom:var(--s3);padding:var(--s2);background:var(--bg-darker);border-radius:var(--card-border-radius);border:1px solid var(--divider-color);box-sizing:border-box;width:100%;overflow:hidden}.dropdown-label{align-items:center;gap:var(--s);flex-wrap:wrap;width:100%;font-size:.9em;display:flex}.task-dropdown{text-overflow:ellipsis;white-space:nowrap;width:100%;max-width:100%;overflow:hidden}.task-preview{margin-top:var(--s)}.task-count-info{color:var(--c-primary);font-size:.85em;font-weight:500}.task-count-info.tooltip{cursor:help;border-bottom:1px dotted var(--c-primary)}.task-count-info.tooltip:hover{color:var(--c-accent)}.task-preview-content{width:100%}.task-count-header{color:var(--c-primary);margin-bottom:var(--s);font-size:.85em;font-weight:600}.task-preview-list{margin-left:var(--s)}.task-preview-item{margin-bottom:var(--s-quarter);word-break:break-word;font-size:.8em;line-height:1.3}.task-preview-more{color:var(--text-color-muted);margin-top:var(--s-quarter);font-size:.75em;font-style:italic}.prompt-text{resize:vertical;width:100%;min-height:300px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,monospace;font-size:.9em;line-height:1.5}.prompt-actions{margin-top:var(--s2);gap:var(--s);flex-wrap:wrap;justify-content:center;display:flex}.chatgpt-button{color:#fff;background:#10a37f;border-color:#10a37f}.chatgpt-button:hover{background:#0d8c6b;border-color:#0d8c6b}.empty-state{text-align:center;padding:var(--s3);background:var(--card-bg);border-radius:var(--card-border-radius);border:2px dashed var(--divider-color)}.loading-container{text-align:center;padding:var(--s3)}.custom-prompts-header{margin-bottom:var(--s3);justify-content:space-between;align-items:center;gap:var(--s2);flex-wrap:wrap;display:flex}.custom-prompts-list{gap:var(--s2);flex-direction:column;display:flex}.custom-prompt-card{border-left:4px solid var(--c-primary)}.custom-prompt-header{margin-bottom:var(--s2);justify-content:space-between;align-items:flex-start;display:flex}.prompt-card-actions{justify-content:flex-end;display:flex}.prompt-preview{margin-bottom:var(--s2);line-height:1.5}.editor-header{margin-bottom:var(--s3)}.editor-container{max-width:800px}.editor-instructions{background:var(--card-bg);padding:var(--s2);border-radius:var(--card-border-radius);margin-bottom:var(--s3);border-left:4px solid var(--c-primary)}.editor-instructions p{margin:0 0 var(--s) 0}.editor-instructions p:last-child{margin-bottom:0}.editor-field{margin-bottom:var(--s3)}.field-label{margin-bottom:var(--s);font-weight:600;display:block}.prompt-title-input{border-width:2px;width:100%;font-weight:500}.prompt-textarea{resize:vertical;border-width:2px;width:100%;min-height:300px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,monospace;font-size:.9em;line-height:1.5}.editor-actions{gap:var(--s2);padding-top:var(--s2);border-top:1px solid var(--divider-color);justify-content:flex-end;display:flex}
+</style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

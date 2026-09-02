@@ -30,6 +30,13 @@ echo ==^> Раскладываю результат в site\...
 if exist "site" rmdir /s /q site
 xcopy /e /i /q sp-src\dist\browser site >nul
 del /s /q site\*.map >nul 2>nul
+
+REM Плагин Google Calendar несёт OAuth client id разработчиков Super
+REM Productivity. Это не утечка, но защита от секретов в GitHub блокирует
+REM коммит такой сборки, а в локальной сети без интернета плагин всё равно
+REM бесполезен. Если интернет есть и календарь нужен — уберите эту строку.
+if exist "site\assets\bundled-plugins\google-calendar-provider" rmdir /s /q site\assets\bundled-plugins\google-calendar-provider
+
 copy /y sp-src\dist\3rdpartylicenses.txt site\ >nul 2>nul
 copy /y sp-src\LICENSE site\LICENSE.super-productivity >nul 2>nul
 

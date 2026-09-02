@@ -1,5 +1,4 @@
 sp-src/
-site/
 node_modules/
 *.log
 .DS_Store

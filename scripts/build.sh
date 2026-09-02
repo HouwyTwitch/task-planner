@@ -29,6 +29,13 @@ echo "==> Раскладываю результат в site/..."
 rm -rf site
 cp -r sp-src/dist/browser site
 find site -name "*.map" -delete
+
+# Плагин Google Calendar несёт в себе OAuth client id разработчиков Super
+# Productivity. Это не утечка, но защита от секретов в GitHub блокирует
+# коммит такой сборки, а в локальной сети без интернета плагин всё равно
+# бесполезен. Если интернет есть и календарь нужен — уберите эту строку.
+rm -rf site/assets/bundled-plugins/google-calendar-provider
+
 # Лицензии Super Productivity (GPLv3) обязаны ехать вместе со сборкой
 cp sp-src/dist/3rdpartylicenses.txt site/ 2>/dev/null || true
 cp sp-src/LICENSE site/LICENSE.super-productivity 2>/dev/null || true
