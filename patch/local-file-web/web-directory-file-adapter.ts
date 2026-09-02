@@ -1,4 +1,4 @@
-import type { FileAdapter } from '@sp/sync-providers';
+import type { FileAdapter } from '@sp/sync-providers/file-based';
 import { loadDirectoryHandle } from './directory-handle-store';
 
 /**
