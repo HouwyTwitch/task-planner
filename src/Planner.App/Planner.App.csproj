@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <WindowsPackageType>None</WindowsPackageType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\NetworkPlanner.ico</ApplicationIcon>
+    <AssemblyName>Сетевой планировщик</AssemblyName>
+    <AssemblyTitle>Сетевой планировщик</AssemblyTitle>
+    <Product>Сетевой планировщик</Product>
+    <Description>Многопользовательский сетевой планировщик задач</Description>
+    <RootNamespace>Planner.App</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Planner.Core\Planner.Core.csproj" />
+    <ProjectReference Include="..\Planner.Data\Planner.Data.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260804001" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\NetworkPlanner.ico" />
+    <Content Include="Assets\NetworkPlanner.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <None Update="planner.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+</Project>

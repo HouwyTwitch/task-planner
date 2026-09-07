@@ -1,0 +1,16 @@
+<Application x:Class="Planner.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#1A73E8" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#F7F9FC" />
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="3" />
+        </Style>
+        <Style TargetType="TextBox"><Setter Property="Padding" Value="5" /><Setter Property="Margin" Value="3" /></Style>
+        <Style TargetType="ComboBox"><Setter Property="Padding" Value="4" /><Setter Property="Margin" Value="3" /></Style>
+    </Application.Resources>
+</Application>

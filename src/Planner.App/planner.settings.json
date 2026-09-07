@@ -1,0 +1,13 @@
+{
+  "SharedFolder": "\\\\server\\share\\Planner",
+  "DatabaseFileName": "planner.db",
+  "LockFileName": "planner.lock",
+  "SignalsFolderName": "Signals",
+  "TimeZoneId": "",
+  "DatabaseLockTimeoutSeconds": 10,
+  "FallbackSyncSeconds": 30,
+  "CronPollSeconds": 60,
+  "ReminderPollSeconds": 30,
+  "SnapMinutes": 30,
+  "RecurrenceHorizonMonths": 12
+}

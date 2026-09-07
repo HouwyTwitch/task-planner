@@ -1,0 +1,9 @@
+<Window x:Class="Planner.App.Views.UserEditorWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="../Assets/NetworkPlanner.ico" Title="Пользователь — Сетевой планировщик" Width="500" Height="330" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+ <Grid Margin="14"><Grid.ColumnDefinitions><ColumnDefinition Width="155"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <TextBlock Text="Учётная запись Windows" VerticalAlignment="Center"/><TextBox Grid.Column="1" Text="{Binding Username}" ToolTip="Значение Environment.UserName на компьютере сотрудника"/>
+  <TextBlock Grid.Row="1" Text="ФИО" VerticalAlignment="Center"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DisplayName}"/>
+  <TextBlock Grid.Row="2" Text="Руководитель" VerticalAlignment="Center"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding PossibleParents}" SelectedItem="{Binding Parent}" DisplayMemberPath="DisplayName"/>
+  <TextBlock Grid.Row="3" Text="Роль" VerticalAlignment="Center"/><ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" DisplayMemberPath="Name"/>
+  <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom"><Button Content="Отмена" IsCancel="True"/><Button Content="Сохранить" Click="Save_Click" IsDefault="True" Background="#1A73E8" Foreground="White"/></StackPanel>
+ </Grid>
+</Window>

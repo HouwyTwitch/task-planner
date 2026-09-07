@@ -1,0 +1,64 @@
+<UserControl x:Class="Planner.App.Views.MonthView" Language="ru-RU"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <UserControl.Resources>
+  <Style x:Key="MonthTaskButtonStyle" TargetType="Button">
+   <Setter Property="Foreground" Value="White"/>
+   <Setter Property="Background" Value="#1A73E8"/>
+   <Setter Property="BorderBrush" Value="#1558B0"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="Padding" Value="5,3"/>
+   <Setter Property="Margin" Value="1"/>
+   <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+   <Style.Triggers>
+    <DataTrigger Binding="{Binding VisualState}" Value="InProgress">
+     <Setter Property="Background" Value="#188038"/>
+     <Setter Property="BorderBrush" Value="#0D652D"/>
+    </DataTrigger>
+    <DataTrigger Binding="{Binding VisualState}" Value="Overdue">
+     <Setter Property="Background" Value="#D93025"/>
+     <Setter Property="BorderBrush" Value="#A50E0E"/>
+    </DataTrigger>
+    <DataTrigger Binding="{Binding VisualState}" Value="Completed">
+     <Setter Property="Background" Value="#80868B"/>
+     <Setter Property="BorderBrush" Value="#5F6368"/>
+    </DataTrigger>
+   </Style.Triggers>
+  </Style>
+ </UserControl.Resources>
+ <Grid>
+  <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Border Grid.Row="0" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+   <TextBlock Text="{Binding MonthCaption}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+  </Border>
+  <UniformGrid Grid.Row="1" Columns="7"><TextBlock Text="Пн" HorizontalAlignment="Center"/><TextBlock Text="Вт" HorizontalAlignment="Center"/><TextBlock Text="Ср" HorizontalAlignment="Center"/><TextBlock Text="Чт" HorizontalAlignment="Center"/><TextBlock Text="Пт" HorizontalAlignment="Center"/><TextBlock Text="Сб" HorizontalAlignment="Center"/><TextBlock Text="Вс" HorizontalAlignment="Center"/></UniformGrid>
+  <ItemsControl Grid.Row="2" ItemsSource="{Binding MonthDays}">
+   <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7" Rows="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+   <ItemsControl.ItemTemplate>
+    <DataTemplate>
+     <Border BorderBrush="#E0E0E0" BorderThickness="0,0,1,1" Padding="4">
+      <DockPanel>
+       <TextBlock DockPanel.Dock="Top" Text="{Binding Date,StringFormat=dd}" FontWeight="SemiBold"/>
+       <ItemsControl ItemsSource="{Binding Tasks}">
+        <ItemsControl.ItemTemplate>
+         <DataTemplate>
+          <Button Tag="{Binding}" Click="Task_Click" ContextMenuOpening="Task_ContextMenuOpening"
+                  Style="{StaticResource MonthTaskButtonStyle}"
+                  ToolTip="{Binding Description}">
+           <Button.ContextMenu><ContextMenu/></Button.ContextMenu>
+           <StackPanel>
+            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <TextBlock FontSize="9" Foreground="White" TextWrapping="Wrap" Opacity="0.92"><Run Text="Исполнитель: "/><Run Text="{Binding AssignedToDisplayName}"/></TextBlock>
+            <TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="9" Foreground="White" Opacity="0.92"/>
+           </StackPanel>
+          </Button>
+         </DataTemplate>
+        </ItemsControl.ItemTemplate>
+       </ItemsControl>
+      </DockPanel>
+     </Border>
+    </DataTemplate>
+   </ItemsControl.ItemTemplate>
+  </ItemsControl>
+ </Grid>
+</UserControl>

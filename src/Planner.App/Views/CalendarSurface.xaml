@@ -1,0 +1,28 @@
+<UserControl x:Class="Planner.App.Views.CalendarSurface" Language="ru-RU"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ AllowDrop="True" PreviewDragOver="CalendarSurface_PreviewDragOver">
+ <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="17"/></Grid.ColumnDefinitions>
+
+   <Border Grid.Row="0" Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="0,0,1,1"/>
+   <ItemsControl Grid.Row="0" Grid.Column="1" ItemsSource="{Binding VisibleDays}">
+     <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+     <ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="#E0E0E0" BorderThickness="0,0,1,1"><StackPanel HorizontalAlignment="Center"><TextBlock Text="{Binding .,StringFormat=ddd}" FontSize="11" Foreground="#666"/><TextBlock Text="{Binding .,StringFormat=dd MMM}" FontWeight="SemiBold"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate>
+   </ItemsControl>
+
+   <Border Grid.Row="1" Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="0,0,1,1" Background="#FAFAFA"><TextBlock Text="Без времени" FontSize="10" Foreground="#666" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+   <Canvas x:Name="DateOnlyCanvas" Grid.Row="1" Grid.Column="1" Background="#FAFAFA" ClipToBounds="True" Height="42"/>
+
+   <ScrollViewer Grid.Row="2" Grid.ColumnSpan="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+     <Grid Height="1152">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <Canvas x:Name="TimeLabels" Grid.Column="0" IsHitTestVisible="False"/>
+       <Canvas x:Name="TaskCanvas" Grid.Column="1" AllowDrop="True"
+               Drop="TaskCanvas_Drop" DragOver="TaskCanvas_DragOver" DragLeave="TaskCanvas_DragLeave"
+               MouseLeftButtonDown="TaskCanvas_MouseLeftButtonDown" Background="White"/>
+     </Grid>
+   </ScrollViewer>
+ </Grid>
+</UserControl>

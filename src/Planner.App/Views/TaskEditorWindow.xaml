@@ -1,0 +1,39 @@
+<Window x:Class="Planner.App.Views.TaskEditorWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Icon="../Assets/NetworkPlanner.ico" Title="Задача — Сетевой планировщик" Width="600" Height="720" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+ <ScrollViewer VerticalScrollBarVisibility="Auto"><Grid Margin="14">
+  <Grid.ColumnDefinitions><ColumnDefinition Width="155"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+  <Grid.RowDefinitions>
+   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+  </Grid.RowDefinitions>
+
+  <Border Grid.ColumnSpan="2" Background="#FFF4CE" Padding="8" Margin="3,0,3,8" Visibility="{Binding IsLimitedEdit,Converter={StaticResource BoolToVisibility}}">
+   <TextBlock Text="{Binding EditModeHint}" TextWrapping="Wrap"/>
+  </Border>
+
+  <TextBlock Grid.Row="1" Text="Название" VerticalAlignment="Center"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Title,UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsLimitedEdit}"/>
+  <TextBlock Grid.Row="2" Text="Описание / ход работы" VerticalAlignment="Top"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description,UpdateSourceTrigger=PropertyChanged}" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+  <TextBlock Grid.Row="3" Text="Исполнитель" VerticalAlignment="Center"/><ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding Users}" SelectedItem="{Binding Assignee}" DisplayMemberPath="DisplayName" IsEnabled="{Binding CanEditCore}"/>
+  <TextBlock Grid.Row="4" Text="Дата" VerticalAlignment="Center"/><DatePicker Grid.Row="4" Grid.Column="1" SelectedDate="{Binding Date}" Margin="3" IsEnabled="{Binding CanEditCore}"/>
+  <TextBlock Grid.Row="5" Text="Время" VerticalAlignment="Center"/>
+  <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanEditCore}">
+   <TextBox Text="{Binding Time}" Width="80" IsEnabled="{Binding HasTime}"/>
+   <TextBlock Text="Длительность" VerticalAlignment="Center" Margin="8,0,3,0"/>
+   <TextBox Text="{Binding DurationMinutes}" Width="65" IsEnabled="{Binding HasTime}"/>
+   <TextBlock Text="мин" VerticalAlignment="Center"/>
+   <CheckBox Content="Без времени" IsChecked="{Binding WithoutTime}" VerticalAlignment="Center" Margin="12,0" IsEnabled="{Binding CanEditCore}"/>
+  </StackPanel>
+  <TextBlock Grid.Row="6" Text="Статус" VerticalAlignment="Center"/><ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding Statuses}" SelectedItem="{Binding SelectedStatus}" DisplayMemberPath="Name"/>
+  <TextBlock Grid.Row="7" Text="Напоминание" VerticalAlignment="Center"/>
+  <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" IsEnabled="{Binding CanEditCore}">
+   <CheckBox IsChecked="{Binding HasReminder}" Content="Включено" VerticalAlignment="Center"/><TextBox Text="{Binding ReminderValue}" Width="75"/><ComboBox ItemsSource="{Binding ReminderUnits}" SelectedItem="{Binding ReminderUnit}" DisplayMemberPath="Name" Width="125"/>
+  </StackPanel>
+  <TextBlock Grid.Row="8" Text="Повторение" VerticalAlignment="Center"/><ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding RecurrenceTypes}" SelectedItem="{Binding RecurrenceType}" IsEnabled="{Binding CanEditCore}"/>
+  <TextBlock Grid.Row="9" Text="День недели" VerticalAlignment="Center"/><ComboBox Grid.Row="9" Grid.Column="1" ItemsSource="{Binding Days}" SelectedItem="{Binding WeeklyDay}" DisplayMemberPath="Name" IsEnabled="{Binding CanEditCore}"/>
+  <TextBlock Grid.Row="10" Text="Cron" VerticalAlignment="Center"/><TextBox Grid.Row="10" Grid.Column="1" Text="{Binding Cron}" ToolTip="Например: 0 9 * * 1" IsEnabled="{Binding CanEditCore}"/>
+  <TextBlock Grid.Row="11" Grid.ColumnSpan="2" Text="Дата обязательна. Если время не указано, включите «Без времени» — задача появится в верхней строке соответствующего дня. Простые режимы повторения автоматически преобразуются в Cron." TextWrapping="Wrap" Foreground="#666" Margin="3,12"/>
+  <StackPanel Grid.Row="12" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0"><Button Content="Отмена" IsCancel="True"/><Button Content="Сохранить" Click="Save_Click" IsDefault="True" Background="#1A73E8" Foreground="White"/></StackPanel>
+ </Grid></ScrollViewer>
+</Window>
