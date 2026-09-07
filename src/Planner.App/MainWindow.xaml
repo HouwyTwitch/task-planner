@@ -5,31 +5,90 @@
         xmlns:vm="clr-namespace:Planner.App.ViewModels"
         xmlns:views="clr-namespace:Planner.App.Views"
         Title="Сетевой планировщик" Icon="Assets/NetworkPlanner.ico" Height="850" Width="1450" MinHeight="650" MinWidth="1050" WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style x:Key="ViewButtonBase" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinWidth" Value="92"/>
+        </Style>
+        <Style x:Key="DayViewButton" TargetType="Button" BasedOn="{StaticResource ViewButtonBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ViewMode}" Value="Day">
+                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="WorkWeekViewButton" TargetType="Button" BasedOn="{StaticResource ViewButtonBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ViewMode}" Value="WorkWeek">
+                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="MonthViewButton" TargetType="Button" BasedOn="{StaticResource ViewButtonBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ViewMode}" Value="Month">
+                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Window.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding NewTaskCommand}"/>
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding EditTaskCommand}"/>
+        <KeyBinding Key="R" Modifiers="Control" Command="{Binding StatisticsCommand}"/>
+        <KeyBinding Key="T" Modifiers="Control" Command="{Binding TodayCommand}"/>
+    </Window.InputBindings>
+
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
-        <Border Grid.Row="0" BorderBrush="#DADCE0" BorderThickness="0,0,0,1" Padding="8">
-            <DockPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                    <Button Content="Сегодня" Command="{Binding TodayCommand}"/>
-                    <Button Content="◀" ToolTip="Назад" Command="{Binding PreviousCommand}"/>
-                    <Button Content="▶" ToolTip="Вперёд" Command="{Binding NextCommand}"/>
-                    <TextBlock Text="{Binding SelectedUserCaption}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" Margin="15,0"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                    <Button Content="День" Command="{Binding SetViewCommand}" CommandParameter="Day"/>
-                    <Button Content="Рабочая неделя" Command="{Binding SetViewCommand}" CommandParameter="WorkWeek"/>
-                    <Button Content="Месяц" Command="{Binding SetViewCommand}" CommandParameter="Month"/>
-                    <Button Content="⟳" ToolTip="Обновить" Command="{Binding RefreshCommand}"/>
-                    <TextBlock Text="Новая задача:" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="#5F6368"/>
-                    <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность задачи при двойном клике по сетке"/>
-                    <TextBlock Text="мин" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="#5F6368"/>
-                    <Button Content="＋ Новая задача" Command="{Binding NewTaskCommand}" Background="{StaticResource AccentBrush}" Foreground="White"/>
-                    <Button Content="Открыть задачу" Command="{Binding EditTaskCommand}"/>
-                </StackPanel>
-            </DockPanel>
+        <Border Grid.Row="0" BorderBrush="#DADCE0" BorderThickness="0,0,0,1" Padding="8,6">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                        <Button Content="Сегодня" Command="{Binding TodayCommand}" ToolTip="Перейти к текущей дате (Ctrl+T)"/>
+                        <Button Content="◀" ToolTip="Назад" Command="{Binding PreviousCommand}"/>
+                        <Button Content="▶" ToolTip="Вперёд" Command="{Binding NextCommand}"/>
+                        <TextBlock Text="{Binding SelectedUserCaption}" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" Margin="15,0"/>
+                        <TextBlock Text="{Binding MonthCaption}" FontSize="14" Foreground="#5F6368" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                        <Button Content="День" Style="{StaticResource DayViewButton}" Command="{Binding SetViewCommand}" CommandParameter="Day"/>
+                        <Button Content="Рабочая неделя" Style="{StaticResource WorkWeekViewButton}" Command="{Binding SetViewCommand}" CommandParameter="WorkWeek"/>
+                        <Button Content="Месяц" Style="{StaticResource MonthViewButton}" Command="{Binding SetViewCommand}" CommandParameter="Month"/>
+                        <Button Content="⟳" ToolTip="Обновить (F5)" Command="{Binding RefreshCommand}"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <DockPanel Grid.Row="1" Margin="0,6,0,0">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                        <TextBlock Text="Поиск" VerticalAlignment="Center" Foreground="#5F6368"/>
+                        <TextBox x:Name="SearchBox" Width="200" Text="{Binding SearchText,UpdateSourceTrigger=PropertyChanged,Delay=250}"
+                                 ToolTip="Название, описание, исполнитель или автор задачи"/>
+                        <Button Content="✕" ToolTip="Очистить поиск" Click="ClearSearch_Click" Padding="8,5"/>
+                        <CheckBox Content="Скрыть выполненные" IsChecked="{Binding HideCompleted}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                        <TextBlock Text="Длительность:" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="#5F6368"/>
+                        <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность новой задачи, создаваемой двойным щелчком по сетке"/>
+                        <TextBlock Text="мин" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="#5F6368"/>
+                        <Button Content="＋ Новая задача" Command="{Binding NewTaskCommand}" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Создать задачу (Ctrl+N)"/>
+                        <Button Content="Открыть задачу" Command="{Binding EditTaskCommand}" ToolTip="Открыть выбранную задачу (Ctrl+O). Двойной щелчок по задаче делает то же самое"/>
+                        <Button Content="📊 Статистика" Command="{Binding StatisticsCommand}" ToolTip="Отчёт по себе и подчинённым (Ctrl+R)"/>
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
         </Border>
         <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="*"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="270"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="#DADCE0" BorderThickness="0,0,1,0" Padding="8">
                 <Grid><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="8"/><RowDefinition Height="220"/></Grid.RowDefinitions>
                     <GroupBox Header="Сотрудники">
@@ -38,9 +97,10 @@
                         </TreeView>
                     </GroupBox>
                     <GroupBox Grid.Row="2" Header="Шаблоны повторяющихся задач">
-                        <ListBox ItemsSource="{Binding RecurringTemplates}" SelectedItem="{Binding SelectedTask}" MouseDoubleClick="TaskList_MouseDoubleClick" ContextMenuOpening="RecurringList_ContextMenuOpening">
+                        <ListBox ItemsSource="{Binding RecurringTemplates}" SelectedItem="{Binding SelectedTemplate}" MouseDoubleClick="TaskList_MouseDoubleClick" ContextMenuOpening="RecurringList_ContextMenuOpening"
+                                 ToolTip="Двойной щелчок — открыть шаблон" HorizontalContentAlignment="Stretch">
                             <ListBox.ContextMenu><ContextMenu/></ListBox.ContextMenu>
-                            <ListBox.ItemTemplate><DataTemplate><Border Padding="6" Margin="2" Background="White" BorderBrush="#DADCE0" BorderThickness="1" CornerRadius="4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding StartDate, StringFormat=С: {0:dd.MM.yyyy}}" FontSize="10" Foreground="#777"/><TextBlock Text="{Binding CronSchedule, StringFormat='Расписание: {0}'}" FontSize="10" Foreground="#777" TextWrapping="Wrap"/><TextBlock Text="{Binding AssignedToDisplayName, StringFormat=Исполнитель: {0}}" FontSize="10" Foreground="#666" TextWrapping="Wrap"/><TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="10" Foreground="#666"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+                            <ListBox.ItemTemplate><DataTemplate><Border Padding="6" Margin="2" Background="White" BorderBrush="#DADCE0" BorderThickness="1" CornerRadius="4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding StartDate, StringFormat=С: {0:dd.MM.yyyy}}" FontSize="10" Foreground="#777"/><TextBlock Text="{Binding ScheduleDisplay, StringFormat='Повтор: {0}'}" FontSize="10" Foreground="#777" TextWrapping="Wrap"/><TextBlock Text="{Binding AssigneeDisplay, StringFormat=Исполнитель: {0}}" FontSize="10" Foreground="#666" TextWrapping="Wrap"/><TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="10" Foreground="#666"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                         </ListBox>
                     </GroupBox>
                 </Grid>
@@ -49,10 +109,10 @@
                 <views:CalendarSurface Visibility="{Binding IsTimeView,Converter={StaticResource BoolToVisibility}}"/>
                 <views:MonthView Visibility="{Binding IsMonthView,Converter={StaticResource BoolToVisibility}}"/>
             </Grid>
-            <Border Grid.Column="2" BorderBrush="#DADCE0" BorderThickness="1,0,0,0" Padding="8" Visibility="{Binding IsAdmin,Converter={StaticResource BoolToVisibility}}">
+            <Border Grid.Column="2" Width="330" BorderBrush="#DADCE0" BorderThickness="1,0,0,0" Padding="8" Visibility="{Binding IsAdmin,Converter={StaticResource BoolToVisibility}}">
                 <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <TextBlock Text="Администрирование" FontSize="16" FontWeight="SemiBold" Margin="3,3,3,8"/>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding AdminUsers}" SelectedItem="{Binding SelectedAdminUser}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding AdminUsers}" SelectedItem="{Binding SelectedAdminUser}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" MouseDoubleClick="AdminUsers_MouseDoubleClick">
                         <DataGrid.Columns><DataGridTextColumn Header="ФИО" Binding="{Binding DisplayName}" Width="*"/><DataGridTextColumn Header="Учётная запись Windows" Binding="{Binding Username}" Width="145"/><DataGridTextColumn Header="Роль" Binding="{Binding RoleDisplay}" Width="90"/></DataGrid.Columns>
                     </DataGrid>
                     <StackPanel Grid.Row="2" Orientation="Horizontal"><Button Content="Добавить" Command="{Binding NewUserCommand}"/><Button Content="Редактировать" Command="{Binding EditUserCommand}"/></StackPanel>
@@ -60,9 +120,10 @@
             </Border>
         </Grid>
         <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#DADCE0" BorderThickness="0,1,0,0">
-            <Grid Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Grid Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                <TextBlock Grid.Column="1" Text="{Binding LoggedUser.DisplayName, StringFormat=Пользователь: {0}}" VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="Двойной щелчок: по задаче — открыть, по свободной сетке — создать" VerticalAlignment="Center" Margin="0,0,18,0" Foreground="#5F6368"/>
+                <TextBlock Grid.Column="2" Text="{Binding LoggedUser.DisplayName, StringFormat=Пользователь: {0}}" VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="SemiBold"/>
             </Grid>
         </Border>
     </Grid>

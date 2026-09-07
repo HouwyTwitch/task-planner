@@ -1,3 +1,5 @@
+using Planner.Core.Services;
+
 namespace Planner.Core.Models;
 
 public sealed class TaskItem
@@ -54,6 +56,23 @@ public sealed class TaskItem
         TaskVisualStates.Pending;
 
     public string StatusDisplay => IsOverdue ? "Просрочено" : TaskStatuses.ToRussian(Status);
+
+    /// <summary>Время задачи для списков и подсказок: «09:00–10:00» либо «Весь день».</summary>
+    public string TimeDisplay
+    {
+        get
+        {
+            if (StartDate is null) return string.Empty;
+            if (IsAllDay) return "Весь день";
+            var start = StartDate.Value;
+            return $"{start:HH:mm}–{start.Add(EffectiveDuration):HH:mm}";
+        }
+    }
+
+    /// <summary>Человеко-читаемое расписание повторения вместо сырого Cron.</summary>
+    public string ScheduleDisplay => CronDescriber.Describe(CronSchedule);
+
+    public bool IsRecurringTemplate => SourceTaskId is null && !string.IsNullOrWhiteSpace(CronSchedule);
     public string AssigneeDisplay => string.IsNullOrWhiteSpace(AssignedToDisplayName) ? $"ID {AssignedToUserId}" : AssignedToDisplayName;
     public string CreatorDisplay => string.IsNullOrWhiteSpace(CreatedByDisplayName) ? $"ID {CreatedByUserId}" : CreatedByDisplayName;
 

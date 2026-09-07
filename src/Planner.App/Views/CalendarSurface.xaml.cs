@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Planner.App.ViewModels;
 using Planner.Core.Models;
 
@@ -26,14 +27,40 @@ public partial class CalendarSurface : UserControl
     private bool _isResizing;
     private double _resizeMinutes;
     private double _resizeSnappedMinutes;
+    private bool _initialScrollDone;
+    private readonly DispatcherTimer _clock;
 
     public CalendarSurface()
     {
         InitializeComponent();
-        Loaded += (_, _) => Attach();
+
+        // Линия текущего времени должна двигаться и без обновления данных.
+        _clock = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) };
+        _clock.Tick += (_, _) => { if (IsVisible && _dragTask is null && !_isResizing) Render(); };
+
+        Loaded += (_, _) =>
+        {
+            Attach();
+            ScrollToWorkingHours();
+            _clock.Start();
+        };
+        Unloaded += (_, _) => _clock.Stop();
         DataContextChanged += (_, _) => Attach();
         SizeChanged += (_, _) => Render();
+
         BuildGrid();
+    }
+
+    /// <summary>
+    /// Сетка суток начинается с 00:00, поэтому при открытии показываем рабочее время,
+    /// а не пустую ночь.
+    /// </summary>
+    private void ScrollToWorkingHours()
+    {
+        if (_initialScrollDone) return;
+        _initialScrollDone = true;
+        var minutes = Math.Clamp(DateTime.Now.TimeOfDay.TotalMinutes - 60, 7 * 60, 20 * 60);
+        Dispatcher.InvokeAsync(() => TimeScroll.ScrollToVerticalOffset(minutes * PixelsPerMinute), DispatcherPriority.Loaded);
     }
 
     private void Attach()
@@ -156,6 +183,37 @@ public partial class CalendarSurface : UserControl
             Panel.SetZIndex(border, 10);
             TaskCanvas.Children.Add(border);
         }
+
+        RenderNowLine(days, dayWidth);
+    }
+
+    /// <summary>Красная линия текущего времени в колонке сегодняшнего дня — как в Google Календаре.</summary>
+    private void RenderNowLine(List<DateTime> days, double dayWidth)
+    {
+        var todayIndex = days.FindIndex(d => d.Date == DateTime.Today);
+        if (todayIndex < 0) return;
+
+        var accent = new SolidColorBrush(Color.FromRgb(217, 48, 37));
+        var y = DateTime.Now.TimeOfDay.TotalMinutes * PixelsPerMinute;
+
+        var line = new Border { Height = 2, Width = dayWidth, Background = accent, IsHitTestVisible = false };
+        Canvas.SetLeft(line, todayIndex * dayWidth);
+        Canvas.SetTop(line, y - 1);
+        Panel.SetZIndex(line, 40);
+        TaskCanvas.Children.Add(line);
+
+        var dot = new Border
+        {
+            Width = 10,
+            Height = 10,
+            CornerRadius = new CornerRadius(5),
+            Background = accent,
+            IsHitTestVisible = false
+        };
+        Canvas.SetLeft(dot, todayIndex * dayWidth - 4);
+        Canvas.SetTop(dot, y - 5);
+        Panel.SetZIndex(dot, 41);
+        TaskCanvas.Children.Add(dot);
     }
 
     private Border CreateTaskBorder(
@@ -179,7 +237,7 @@ public partial class CalendarSurface : UserControl
             CornerRadius = new CornerRadius(5),
             Padding = new Thickness(6, 4, 6, 4),
             Width = width,
-            ToolTip = $"{task.Title}\nИсполнитель: {task.AssigneeDisplay}\nСтатус: {task.StatusDisplay}\nСоздал: {task.CreatorDisplay}\n{task.Description}",
+            ToolTip = BuildToolTip(task),
             ContextMenu = BuildContextMenu(task),
             ClipToBounds = true
         };
@@ -313,13 +371,28 @@ public partial class CalendarSurface : UserControl
 
         border.Child = root;
         border.PreviewMouseLeftButtonDown += Task_MouseDown;
-        border.MouseLeftButtonUp += Task_MouseUp;
+        border.Cursor = Cursors.Hand;
         if (canDrag)
         {
             border.MouseMove += Task_MouseMove;
             border.GiveFeedback += Task_GiveFeedback;
         }
         return border;
+    }
+
+    private static string BuildToolTip(TaskItem task)
+    {
+        var lines = new List<string>
+        {
+            task.Title,
+            $"Время: {(string.IsNullOrEmpty(task.TimeDisplay) ? "—" : task.TimeDisplay)}",
+            $"Исполнитель: {task.AssigneeDisplay}",
+            $"Статус: {task.StatusDisplay}",
+            $"Создал: {task.CreatorDisplay}"
+        };
+        if (!string.IsNullOrWhiteSpace(task.Description)) lines.Add(task.Description!.Trim());
+        lines.Add("Двойной щелчок — открыть задачу");
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static ControlTemplate CreateResizeThumbTemplate()
@@ -366,7 +439,7 @@ public partial class CalendarSurface : UserControl
     private ContextMenu BuildContextMenu(TaskItem task)
     {
         var menu = new ContextMenu();
-        var open = new MenuItem { Header = "Открыть задачу" };
+        var open = new MenuItem { Header = "Открыть задачу", FontWeight = FontWeights.SemiBold };
         open.Click += async (_, _) => { if (_vm is not null) await _vm.EditSpecificTaskAsync(task); };
         menu.Items.Add(open);
 
@@ -408,20 +481,34 @@ public partial class CalendarSurface : UserControl
         if (sender is not Border border || border.DataContext is not TaskItem task) return;
         _vm?.SelectTask(task);
         if (FindAncestor<Thumb>(e.OriginalSource as DependencyObject) is not null) return;
+
+        if (e.ClickCount >= 2)
+        {
+            // Двойной щелчок по карточке открывает задачу. Перетаскивание при этом не начинается.
+            _dragTask = null;
+            e.Handled = true;
+            OpenTask(task);
+            return;
+        }
+
         if (_isResizing || _vm?.CanManageTask(task) != true) return;
         _dragTask = task;
         _dragStart = e.GetPosition(this);
         _dragPointerOffset = e.GetPosition(border);
     }
 
-    private async void Task_MouseUp(object sender, MouseButtonEventArgs e)
+    /// <summary>
+    /// Модальное окно задачи открывается после того, как WPF закончит обработку щелчка:
+    /// иначе диалог появляется при захваченной мыши и второй щелчок «прилипает» к карточке.
+    /// </summary>
+    private void OpenTask(TaskItem task)
     {
-        if (sender is Border border && border.DataContext is TaskItem task && e.ClickCount == 2 && _vm is not null)
-        {
-            e.Handled = true;
-            await _vm.EditSpecificTaskAsync(task);
-        }
+        var vm = _vm;
+        if (vm is null) return;
+        Dispatcher.InvokeAsync(new Action(() => OpenTaskCore(vm, task)), DispatcherPriority.Input);
     }
+
+    private static async void OpenTaskCore(MainViewModel vm, TaskItem task) => await vm.EditSpecificTaskAsync(task);
 
     private void Task_MouseMove(object sender, MouseEventArgs e)
     {
@@ -540,10 +627,11 @@ public partial class CalendarSurface : UserControl
         var dayIndex = days.FindIndex(d => d.Date == start.Date);
         if (dayIndex < 0) return;
         var dayWidth = Math.Max(1, TaskCanvas.ActualWidth / days.Count);
+        var colors = GetTaskColors(task);
         _dropHint ??= new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(65, GetTaskColors(task).Background.R, GetTaskColors(task).Background.G, GetTaskColors(task).Background.B)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(210, GetTaskColors(task).Border.R, GetTaskColors(task).Border.G, GetTaskColors(task).Border.B)),
+            Background = new SolidColorBrush(Color.FromArgb(65, colors.Background.R, colors.Background.G, colors.Background.B)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(210, colors.Border.R, colors.Border.G, colors.Border.B)),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(5),
             IsHitTestVisible = false

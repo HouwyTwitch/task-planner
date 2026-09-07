@@ -9,6 +9,7 @@
    <Setter Property="BorderThickness" Value="1"/>
    <Setter Property="Padding" Value="5,3"/>
    <Setter Property="Margin" Value="1"/>
+   <Setter Property="Cursor" Value="Hand"/>
    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
    <Style.Triggers>
     <DataTrigger Binding="{Binding VisualState}" Value="InProgress">
@@ -25,6 +26,35 @@
     </DataTrigger>
    </Style.Triggers>
   </Style>
+  <Style x:Key="MonthDayCellStyle" TargetType="Border">
+   <Setter Property="BorderBrush" Value="#E0E0E0"/>
+   <Setter Property="BorderThickness" Value="0,0,1,1"/>
+   <Setter Property="Padding" Value="4"/>
+   <Setter Property="Background" Value="White"/>
+   <Style.Triggers>
+    <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
+     <Setter Property="Background" Value="#F4F5F7"/>
+    </DataTrigger>
+    <DataTrigger Binding="{Binding IsToday}" Value="True">
+     <Setter Property="Background" Value="#E8F0FE"/>
+     <Setter Property="BorderBrush" Value="#1A73E8"/>
+     <Setter Property="BorderThickness" Value="1"/>
+    </DataTrigger>
+   </Style.Triggers>
+  </Style>
+  <Style x:Key="MonthDayNumberStyle" TargetType="TextBlock">
+   <Setter Property="FontWeight" Value="SemiBold"/>
+   <Setter Property="Foreground" Value="#202124"/>
+   <Style.Triggers>
+    <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
+     <Setter Property="Foreground" Value="#9AA0A6"/>
+     <Setter Property="FontWeight" Value="Normal"/>
+    </DataTrigger>
+    <DataTrigger Binding="{Binding IsToday}" Value="True">
+     <Setter Property="Foreground" Value="#1A73E8"/>
+    </DataTrigger>
+   </Style.Triggers>
+  </Style>
  </UserControl.Resources>
  <Grid>
   <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="28"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -36,25 +66,40 @@
    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="7" Rows="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
    <ItemsControl.ItemTemplate>
     <DataTemplate>
-     <Border BorderBrush="#E0E0E0" BorderThickness="0,0,1,1" Padding="4">
+     <Border Style="{StaticResource MonthDayCellStyle}">
       <DockPanel>
-       <TextBlock DockPanel.Dock="Top" Text="{Binding Date,StringFormat=dd}" FontWeight="SemiBold"/>
-       <ItemsControl ItemsSource="{Binding Tasks}">
-        <ItemsControl.ItemTemplate>
-         <DataTemplate>
-          <Button Tag="{Binding}" Click="Task_Click" ContextMenuOpening="Task_ContextMenuOpening"
-                  Style="{StaticResource MonthTaskButtonStyle}"
-                  ToolTip="{Binding Description}">
-           <Button.ContextMenu><ContextMenu/></Button.ContextMenu>
-           <StackPanel>
-            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-            <TextBlock FontSize="9" Foreground="White" TextWrapping="Wrap" Opacity="0.92"><Run Text="Исполнитель: "/><Run Text="{Binding AssignedToDisplayName}"/></TextBlock>
-            <TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="9" Foreground="White" Opacity="0.92"/>
-           </StackPanel>
-          </Button>
-         </DataTemplate>
-        </ItemsControl.ItemTemplate>
-       </ItemsControl>
+       <TextBlock DockPanel.Dock="Top" Text="{Binding Date,StringFormat=dd}" Style="{StaticResource MonthDayNumberStyle}"/>
+       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Tasks}">
+         <ItemsControl.ItemTemplate>
+          <DataTemplate>
+           <Button Tag="{Binding}" Click="Task_Click" MouseDoubleClick="Task_DoubleClick" ContextMenuOpening="Task_ContextMenuOpening"
+                   Style="{StaticResource MonthTaskButtonStyle}">
+            <Button.ToolTip>
+             <ToolTip>
+              <StackPanel MaxWidth="360">
+               <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+               <TextBlock Text="{Binding TimeDisplay}"/>
+               <TextBlock Text="{Binding AssigneeDisplay, StringFormat=Исполнитель: {0}}" TextWrapping="Wrap"/>
+               <TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}"/>
+               <TextBlock Text="{Binding CreatorDisplay, StringFormat=Создал: {0}}" TextWrapping="Wrap"/>
+               <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+               <TextBlock Text="Двойной щелчок — открыть задачу" Foreground="#5F6368" Margin="0,4,0,0"/>
+              </StackPanel>
+             </ToolTip>
+            </Button.ToolTip>
+            <Button.ContextMenu><ContextMenu/></Button.ContextMenu>
+            <StackPanel>
+             <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+             <TextBlock Text="{Binding TimeDisplay}" FontSize="9" Foreground="White" Opacity="0.92"/>
+             <TextBlock FontSize="9" Foreground="White" TextWrapping="Wrap" Opacity="0.92"><Run Text="Исполнитель: "/><Run Text="{Binding AssignedToDisplayName}"/></TextBlock>
+             <TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="9" Foreground="White" Opacity="0.92"/>
+            </StackPanel>
+           </Button>
+          </DataTemplate>
+         </ItemsControl.ItemTemplate>
+        </ItemsControl>
+       </ScrollViewer>
       </DockPanel>
      </Border>
     </DataTemplate>

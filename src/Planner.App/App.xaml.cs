@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Markup;
-using Microsoft.Windows.AppNotifications;
+using System.Windows.Threading;
 using Planner.App.Services;
 using Planner.App.ViewModels;
 using Planner.Data.Configuration;
@@ -22,6 +22,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         ConfigureRussianCulture();
+        ConfigureGlobalErrorHandling();
         base.OnStartup(e);
         _cts=new CancellationTokenSource();
         try
@@ -77,7 +78,8 @@ public partial class App : Application
         }
         catch(Exception ex)
         {
-            MessageBox.Show(ex.Message,"Сетевой планировщик — ошибка запуска",MessageBoxButton.OK,MessageBoxImage.Error);
+            LogException("Ошибка запуска",ex);
+            MessageBox.Show($"{ex.Message}\n\nПодробности записаны в журнал:\n{LogFilePath}","Сетевой планировщик — ошибка запуска",MessageBoxButton.OK,MessageBoxImage.Error);
             Shutdown(1);
         }
     }
@@ -95,6 +97,47 @@ public partial class App : Application
         FrameworkElement.LanguageProperty.OverrideMetadata(
             typeof(FrameworkElement),
             new FrameworkPropertyMetadata(XmlLanguage.GetLanguage("ru-RU")));
+    }
+
+    /// <summary>
+    /// Непредвиденная ошибка не должна закрывать приложение молча: она попадает в журнал,
+    /// пользователь получает понятное окно, а работа продолжается.
+    /// </summary>
+    private void ConfigureGlobalErrorHandling()
+    {
+        DispatcherUnhandledException+=OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException+=(_,args)=>LogException("Критическая ошибка",args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException+=(_,args)=>{LogException("Фоновая задача",args.Exception);args.SetObserved();};
+    }
+
+    private void OnDispatcherUnhandledException(object sender,DispatcherUnhandledExceptionEventArgs args)
+    {
+        LogException("Ошибка интерфейса",args.Exception);
+        args.Handled=true;
+        MessageBox.Show(
+            $"{args.Exception.Message}\n\nПодробности записаны в журнал:\n{LogFilePath}",
+            "Сетевой планировщик — ошибка",MessageBoxButton.OK,MessageBoxImage.Warning);
+    }
+
+    private static string LogFilePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "NetworkPlanner","planner.log");
+
+    private static void LogException(string scope,Exception? exception)
+    {
+        if(exception is null)return;
+        try
+        {
+            var path=LogFilePath;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // Журнал не должен расти бесконечно на рабочем месте пользователя.
+            if(File.Exists(path)&&new FileInfo(path).Length>1_000_000) File.Delete(path);
+            File.AppendAllText(path,$"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{scope}] {exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Журналирование не должно порождать новую ошибку.
+        }
     }
 
     private void ActivateMainWindow()

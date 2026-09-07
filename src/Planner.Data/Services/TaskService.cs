@@ -30,6 +30,35 @@ public sealed class TaskService
         return await _tasks.GetRecurringTemplatesAsync(targetUserId,targetUserId==loggedUser.Id,ct);
     }
 
+    /// <summary>
+    /// Отчёт по задачам за период: строка на каждого доступного сотрудника плюс общая строка.
+    /// Руководитель видит себя и всех подчинённых любого уровня, администратор — всех.
+    /// </summary>
+    public async Task<TaskStatisticsReport> GetStatisticsAsync(User loggedUser,DateTime from,DateTime to,CancellationToken ct=default)
+    {
+        if(to<=from) throw new ArgumentException("Конец периода должен быть позже начала.");
+        var users=await GetAccessibleUsersAsync(loggedUser,ct);
+        var rows=new Dictionary<long,TaskStatisticsRow>();
+        foreach(var user in users) rows[user.Id]=new TaskStatisticsRow{UserId=user.Id,DisplayName=user.DisplayName};
+        var total=new TaskStatisticsRow{DisplayName="Итого",IsTotal=true};
+
+        if(rows.Count>0)
+        {
+            var tasks=await _tasks.GetForUsersAsync(rows.Keys.ToList(),from,to,ct);
+            foreach(var task in tasks)
+            {
+                if(rows.TryGetValue(task.AssignedToUserId,out var row)) row.Add(task,task.AssignedToUserId);
+                total.Add(task,task.AssignedToUserId);
+            }
+        }
+
+        return new TaskStatisticsReport
+        {
+            From=from,To=to,Total=total,
+            Rows=rows.Values.OrderByDescending(x=>x.UserId==loggedUser.Id).ThenBy(x=>x.DisplayName,StringComparer.CurrentCulture).ToList()
+        };
+    }
+
     public async Task<long> CreateAsync(User loggedUser, TaskDraft draft, CancellationToken ct=default)
     {
         ValidateDraft(draft); ValidateCron(draft.CronSchedule);
