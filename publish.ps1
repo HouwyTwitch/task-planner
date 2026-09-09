@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Runtime = "win-x64",
     # Сетевая папка обновлений: если указана, готовый архив и update.json копируются в неё.
     [string]$UpdateFolder = "",
