@@ -17,6 +17,7 @@ public sealed class ReminderRepository
 SELECT r.Id,t.Id,t.Title,t.StartDate,r.OffsetSeconds
 FROM Reminders r JOIN Tasks t ON t.Id=r.TaskId
 WHERE t.AssignedToUserId=$u AND t.StartDate IS NOT NULL
+  AND t.Status <> 'Completed'
   AND NOT (t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL)
   AND datetime(t.StartDate, '-' || r.OffsetSeconds || ' seconds') >= $from
   AND datetime(t.StartDate, '-' || r.OffsetSeconds || ' seconds') < $to;

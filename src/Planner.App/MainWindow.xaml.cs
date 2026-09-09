@@ -8,6 +8,7 @@ namespace Planner.App;
 public partial class MainWindow:Window
 {
     public MainWindow()=>InitializeComponent();
+
     private async void UsersTree_SelectedItemChanged(object sender,RoutedPropertyChangedEventArgs<object> e)
     {
         if(DataContext is MainViewModel vm && e.NewValue is UserTreeNodeViewModel node) await vm.SelectUserAsync(node.User);
@@ -16,6 +17,18 @@ public partial class MainWindow:Window
     private async void TaskList_MouseDoubleClick(object sender,System.Windows.Input.MouseButtonEventArgs e)
     {
         if(DataContext is MainViewModel vm && sender is ListBox l && l.SelectedItem is TaskItem t) await vm.EditSpecificTaskAsync(t);
+    }
+
+    private void AdminUsers_MouseDoubleClick(object sender,System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if(DataContext is MainViewModel vm && vm.SelectedAdminUser is not null && vm.EditUserCommand.CanExecute(null))
+            vm.EditUserCommand.Execute(null);
+    }
+
+    private void ClearSearch_Click(object sender,RoutedEventArgs e)
+    {
+        if(DataContext is MainViewModel vm) vm.SearchText=null;
+        SearchBox.Focus();
     }
 
     private void RecurringList_ContextMenuOpening(object sender,ContextMenuEventArgs e)
@@ -27,7 +40,7 @@ public partial class MainWindow:Window
     private static ContextMenu BuildContextMenu(MainViewModel vm,TaskItem task)
     {
         var menu=new ContextMenu();
-        var open=new MenuItem{Header="Открыть шаблон"};open.Click+=async (_,_)=>await vm.EditSpecificTaskAsync(task);menu.Items.Add(open);
+        var open=new MenuItem{Header="Открыть шаблон",FontWeight=FontWeights.SemiBold};open.Click+=async (_,_)=>await vm.EditSpecificTaskAsync(task);menu.Items.Add(open);
         if(vm.CanManageTask(task))
         {
             var transfer=new MenuItem{Header="Передать задачу"};var targets=vm.GetTransferTargets(task);if(targets.Count==0)transfer.IsEnabled=false;

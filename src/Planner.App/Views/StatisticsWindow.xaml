@@ -1,0 +1,138 @@
+<Window x:Class="Planner.App.Views.StatisticsWindow" Language="ru-RU"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Icon="../Assets/NetworkPlanner.ico" Title="Статистика — Сетевой планировщик"
+ Width="1120" Height="720" MinWidth="860" MinHeight="540" WindowStartupLocation="CenterOwner">
+ <Window.Resources>
+  <Style x:Key="CardStyle" TargetType="Border">
+   <Setter Property="BorderBrush" Value="#DADCE0"/>
+   <Setter Property="BorderThickness" Value="1"/>
+   <Setter Property="CornerRadius" Value="6"/>
+   <Setter Property="Padding" Value="12,8"/>
+   <Setter Property="Margin" Value="0,0,8,0"/>
+   <Setter Property="Background" Value="#F7F9FC"/>
+  </Style>
+  <Style x:Key="CardValueStyle" TargetType="TextBlock">
+   <Setter Property="FontSize" Value="24"/>
+   <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style x:Key="CardCaptionStyle" TargetType="TextBlock">
+   <Setter Property="FontSize" Value="11"/>
+   <Setter Property="Foreground" Value="#5F6368"/>
+  </Style>
+ </Window.Resources>
+
+ <Grid Margin="12">
+  <Grid.RowDefinitions>
+   <RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/>
+   <RowDefinition Height="Auto"/>
+   <RowDefinition Height="*"/>
+   <RowDefinition Height="Auto"/>
+  </Grid.RowDefinitions>
+
+  <DockPanel Grid.Row="0" LastChildFill="False">
+   <TextBlock DockPanel.Dock="Left" Text="Статистика по задачам" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+   <TextBlock DockPanel.Dock="Right" Text="{Binding ScopeCaption}" VerticalAlignment="Center" Foreground="#5F6368"/>
+  </DockPanel>
+
+  <WrapPanel Grid.Row="1" Margin="0,10,0,0">
+   <TextBlock Text="Период" VerticalAlignment="Center" Margin="0,0,4,0"/>
+   <ComboBox ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}" Width="180" VerticalAlignment="Center"/>
+   <TextBlock Text="с" VerticalAlignment="Center" Margin="8,0,4,0"/>
+   <DatePicker SelectedDate="{Binding From}" Width="130" Margin="3" IsEnabled="{Binding IsCustomPeriod}"/>
+   <TextBlock Text="по" VerticalAlignment="Center" Margin="8,0,4,0"/>
+   <DatePicker SelectedDate="{Binding To}" Width="130" Margin="3" IsEnabled="{Binding IsCustomPeriod}"/>
+   <Button Content="Обновить" Command="{Binding RefreshCommand}"/>
+   <Button Content="Экспорт в CSV" Click="Export_Click"/>
+   <TextBlock Text="{Binding PeriodCaption}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#5F6368"/>
+  </WrapPanel>
+
+  <Border Grid.Row="2" Background="#FCE8E6" BorderBrush="#D93025" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,8,0,0"
+          Visibility="{Binding HasError,Converter={StaticResource BoolToVisibility}}">
+   <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Foreground="#A50E0E"/>
+  </Border>
+
+  <UniformGrid Grid.Row="3" Rows="1" Margin="0,12,0,0">
+   <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.Total}" Style="{StaticResource CardValueStyle}"/>
+     <TextBlock Text="Всего задач" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+   <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.Completed}" Style="{StaticResource CardValueStyle}" Foreground="#188038"/>
+     <TextBlock Text="Выполнено" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+   <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.InProgress}" Style="{StaticResource CardValueStyle}" Foreground="#1A73E8"/>
+     <TextBlock Text="В работе" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+   <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.Pending}" Style="{StaticResource CardValueStyle}"/>
+     <TextBlock Text="Ожидает выполнения" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+   <Border Style="{StaticResource CardStyle}">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.Overdue}" Style="{StaticResource CardValueStyle}" Foreground="#D93025"/>
+     <TextBlock Text="Просрочено" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+   <Border Style="{StaticResource CardStyle}" Margin="0">
+    <StackPanel>
+     <TextBlock Text="{Binding Total.CompletionRateDisplay}" Style="{StaticResource CardValueStyle}"/>
+     <TextBlock Text="Доля выполненных" Style="{StaticResource CardCaptionStyle}"/>
+    </StackPanel>
+   </Border>
+  </UniformGrid>
+
+  <DataGrid Grid.Row="4" Margin="0,12,0,0" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+            CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeaderWidth="0"
+            AlternatingRowBackground="#FAFBFC" SelectionMode="Single">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Сотрудник" Binding="{Binding DisplayName}" Width="*"/>
+    <DataGridTextColumn Header="Всего" Binding="{Binding Total}" Width="70"/>
+    <DataGridTextColumn Header="Ожидает" Binding="{Binding Pending}" Width="85"/>
+    <DataGridTextColumn Header="В работе" Binding="{Binding InProgress}" Width="85"/>
+    <DataGridTextColumn Header="Выполнено" Binding="{Binding Completed}" Width="100"/>
+    <DataGridTextColumn Header="Просрочено" Binding="{Binding Overdue}" Width="105">
+     <DataGridTextColumn.ElementStyle>
+      <Style TargetType="TextBlock">
+       <Setter Property="Margin" Value="2,0"/>
+       <Style.Triggers>
+        <DataTrigger Binding="{Binding HasOverdue}" Value="True">
+         <Setter Property="Foreground" Value="#D93025"/>
+         <Setter Property="FontWeight" Value="SemiBold"/>
+        </DataTrigger>
+       </Style.Triggers>
+      </Style>
+     </DataGridTextColumn.ElementStyle>
+    </DataGridTextColumn>
+    <DataGridTemplateColumn Header="% выполнения" Width="160" SortMemberPath="CompletionRate">
+     <DataGridTemplateColumn.CellTemplate>
+      <DataTemplate>
+       <Grid Margin="4,2">
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding CompletionRate,Mode=OneWay}" Height="16" Foreground="#188038" Background="#ECEFF1"/>
+        <TextBlock Text="{Binding CompletionRateDisplay}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10"/>
+       </Grid>
+      </DataTemplate>
+     </DataGridTemplateColumn.CellTemplate>
+    </DataGridTemplateColumn>
+    <DataGridTextColumn Header="Свои" Binding="{Binding Own}" Width="70"/>
+    <DataGridTextColumn Header="Поручено" Binding="{Binding Delegated}" Width="95"/>
+   </DataGrid.Columns>
+  </DataGrid>
+
+  <DockPanel Grid.Row="5" Margin="0,10,0,0" LastChildFill="False">
+   <TextBlock DockPanel.Dock="Left" Text="{Binding EmployeesCaption}" VerticalAlignment="Center" Foreground="#5F6368"/>
+   <Button DockPanel.Dock="Right" Content="Закрыть" IsCancel="True" MinWidth="110"/>
+  </DockPanel>
+ </Grid>
+</Window>

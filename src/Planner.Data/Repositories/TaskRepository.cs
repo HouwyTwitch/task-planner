@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using Planner.Core.Models;
 using Planner.Data.Database;
@@ -51,6 +52,42 @@ ORDER BY t.Id DESC;
 """;
             cmd.Parameters.AddWithValue("$uid", userId);
             cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
+            return (IReadOnlyList<TaskItem>)result;
+        }, ct);
+
+    /// <summary>
+    /// Задачи нескольких сотрудников за период — основа отчёта по подчинённым.
+    /// Шаблоны повторения исключены: считаются только реальные экземпляры задач.
+    /// </summary>
+    public Task<IReadOnlyList<TaskItem>> GetForUsersAsync(IReadOnlyList<long> userIds, DateTime from, DateTime to, CancellationToken ct = default) =>
+        _db.WithConnectionAsync(async c =>
+        {
+            var result = new List<TaskItem>();
+            if (userIds.Count == 0) return (IReadOnlyList<TaskItem>)result;
+
+            await using var cmd = c.CreateCommand();
+            var placeholders = new string[userIds.Count];
+            for (var i = 0; i < userIds.Count; i++)
+            {
+                placeholders[i] = "$u" + i.ToString(CultureInfo.InvariantCulture);
+                cmd.Parameters.AddWithValue(placeholders[i], userIds[i]);
+            }
+
+            cmd.CommandText = $"""
+SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+FROM Tasks t
+LEFT JOIN Users a ON a.Id=t.AssignedToUserId
+LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
+WHERE t.AssignedToUserId IN ({string.Join(",", placeholders)})
+  AND t.StartDate IS NOT NULL AND t.StartDate >= $from AND t.StartDate < $to
+  AND NOT (t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL)
+ORDER BY t.StartDate, t.Id;
+""";
+            cmd.Parameters.AddWithValue("$from", DbTime.ToText(from));
+            cmd.Parameters.AddWithValue("$to", DbTime.ToText(to));
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
             return (IReadOnlyList<TaskItem>)result;

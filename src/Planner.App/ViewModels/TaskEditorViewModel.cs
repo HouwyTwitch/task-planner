@@ -30,7 +30,27 @@ public sealed class TaskEditorViewModel : ObservableObject
 
     public bool CanEditCore => _canEditCore;
     public bool IsLimitedEdit => _existing is not null && !_canEditCore;
-    public string EditModeHint => IsLimitedEdit ? "Задача назначена руководителем. Вы можете изменять описание хода выполнения и статус." : string.Empty;
+
+    /// <summary>Расписание задаётся только в шаблоне: у сгенерированного экземпляра его менять нельзя.</summary>
+    public bool CanEditRecurrence => _canEditCore && _existing?.SourceTaskId is null;
+    public bool IsWeeklyRecurrence => CanEditRecurrence && RecurrenceType == "Еженедельно";
+    public bool IsCronRecurrence => CanEditRecurrence && RecurrenceType == "Cron";
+
+    public string EditModeHint
+    {
+        get
+        {
+            if (IsLimitedEdit) return "Задача назначена руководителем. Вы можете изменять описание хода выполнения и статус.";
+            if (_existing?.SourceTaskId is not null) return "Это повтор задачи. Расписание повторения меняется в шаблоне на левой панели.";
+            return string.Empty;
+        }
+    }
+
+    public bool HasEditModeHint => !string.IsNullOrEmpty(EditModeHint);
+
+    /// <summary>Пояснение к Cron-выражению обычными словами.</summary>
+    public string RecurrenceHint =>
+        IsCronRecurrence && !string.IsNullOrWhiteSpace(Cron) ? $"Будет повторяться {CronDescriber.Describe(Cron)}" : string.Empty;
 
     private string _title=""; public string Title{get=>_title;set=>Set(ref _title,value);}
     private string? _description; public string? Description{get=>_description;set=>Set(ref _description,value);}
@@ -44,9 +64,15 @@ public sealed class TaskEditorViewModel : ObservableObject
     private long _reminderValue=15; public long ReminderValue{get=>_reminderValue;set=>Set(ref _reminderValue,value);}
     private ReminderUnit _reminderUnit=ReminderTimeConverter.Units[1]; public ReminderUnit ReminderUnit{get=>_reminderUnit;set=>Set(ref _reminderUnit,value);}
     private bool _hasReminder; public bool HasReminder{get=>_hasReminder;set=>Set(ref _hasReminder,value);}
-    private string _recurrenceType="Нет"; public string RecurrenceType{get=>_recurrenceType;set=>Set(ref _recurrenceType,value);}
+    private string _recurrenceType="Нет";
+    public string RecurrenceType
+    {
+        get=>_recurrenceType;
+        set{if(Set(ref _recurrenceType,value)){Raise(nameof(IsWeeklyRecurrence));Raise(nameof(IsCronRecurrence));Raise(nameof(RecurrenceHint));}}
+    }
     private DayOption _weeklyDay; public DayOption WeeklyDay{get=>_weeklyDay;set=>Set(ref _weeklyDay,value);}
-    private string? _cron; public string? Cron{get=>_cron;set=>Set(ref _cron,value);}
+    private string? _cron;
+    public string? Cron{get=>_cron;set{if(Set(ref _cron,value))Raise(nameof(RecurrenceHint));}}
 
     public TaskEditorViewModel(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60)
     {
@@ -96,7 +122,7 @@ public sealed class TaskEditorViewModel : ObservableObject
         var cronTime = WithoutTime ? new TimeOnly(0,0) : time;
         var recurrenceDate=Date.Value.Date;
 
-        var cron=RecurrenceType switch
+        var cron=!CanEditRecurrence ? _existing?.CronSchedule : RecurrenceType switch
         {
             "Нет"=>null,
             "Ежедневно"=>SimpleCronBuilder.Daily(cronTime),

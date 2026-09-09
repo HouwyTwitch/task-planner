@@ -21,6 +21,15 @@ public sealed class DialogService : IDialogService
         return w.ShowDialog()==true?vm.BuildUser():null;
     }
 
+    public void ShowStatistics(StatisticsViewModel statistics)
+    {
+        var w=new StatisticsWindow{DataContext=statistics,Owner=Application.Current.MainWindow};
+        w.ShowDialog();
+    }
+
     public bool Confirm(string title,string message) =>
         MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
+
+    public void Error(string title,string message) =>
+        MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.OK,MessageBoxImage.Warning);
 }

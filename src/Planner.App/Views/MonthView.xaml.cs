@@ -8,9 +8,19 @@ namespace Planner.App.Views;
 public partial class MonthView:UserControl
 {
     public MonthView()=>InitializeComponent();
-    private async void Task_Click(object sender,RoutedEventArgs e)
+
+    // Одиночный щелчок только выделяет задачу, открывает её двойной щелчок —
+    // как в списке шаблонов и в режимах «День» и «Рабочая неделя».
+    private void Task_Click(object sender,RoutedEventArgs e)
     {
-        if(DataContext is MainViewModel vm&&sender is Button b&&b.Tag is TaskItem t){vm.SelectTask(t);await vm.EditSpecificTaskAsync(t);}
+        if(DataContext is MainViewModel vm&&sender is Button b&&b.Tag is TaskItem t)vm.SelectTask(t);
+    }
+
+    private async void Task_DoubleClick(object sender,System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if(DataContext is not MainViewModel vm||sender is not Button b||b.Tag is not TaskItem t)return;
+        e.Handled=true;
+        await vm.EditSpecificTaskAsync(t);
     }
 
     private void Task_ContextMenuOpening(object sender,ContextMenuEventArgs e)
@@ -22,7 +32,7 @@ public partial class MonthView:UserControl
     private static ContextMenu BuildContextMenu(MainViewModel vm,TaskItem task)
     {
         var menu=new ContextMenu();
-        var open=new MenuItem{Header="Открыть задачу"};open.Click+=async (_,_)=>await vm.EditSpecificTaskAsync(task);menu.Items.Add(open);
+        var open=new MenuItem{Header="Открыть задачу",FontWeight=FontWeights.SemiBold};open.Click+=async (_,_)=>await vm.EditSpecificTaskAsync(task);menu.Items.Add(open);
         var status=new MenuItem{Header="Изменить статус"};
         AddStatus(status,"Ожидает выполнения",TaskStatuses.Pending,vm,task);AddStatus(status,"В работе",TaskStatuses.InProgress,vm,task);AddStatus(status,"Выполнено",TaskStatuses.Completed,vm,task);menu.Items.Add(status);
         if(vm.CanManageTask(task))

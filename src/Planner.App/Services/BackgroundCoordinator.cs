@@ -37,7 +37,12 @@ public sealed class BackgroundCoordinator : IDisposable
                 foreach(var r in list)
                 {
                     var key=$"{r.ReminderId}:{r.TaskStart:O}";
-                    lock(_triggered) if(!_triggered.Add(key)) continue;
+                    lock(_triggered)
+                    {
+                        // Набор показанных напоминаний живёт весь сеанс, поэтому его надо ограничивать.
+                        if(_triggered.Count>1000) _triggered.Clear();
+                        if(!_triggered.Add(key)) continue;
+                    }
                     _notifications.Show("Напоминание",$"{r.TaskTitle}\nНачало: {r.TaskStart:g}");
                 }
             }catch(OperationCanceledException){}catch{}
