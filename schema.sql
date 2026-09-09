@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS Tasks (
     DurationSeconds INTEGER NULL,
     IsAllDay INTEGER NOT NULL DEFAULT 0,
     CronSchedule TEXT NULL,
+    ShiftWeekendToWeekday INTEGER NOT NULL DEFAULT 0,
     Status TEXT NOT NULL DEFAULT 'Pending',
     SourceTaskId INTEGER NULL,
     CreatedAt TEXT NOT NULL,

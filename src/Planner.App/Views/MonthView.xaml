@@ -84,7 +84,6 @@
                <TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}"/>
                <TextBlock Text="{Binding CreatorDisplay, StringFormat=Создал: {0}}" TextWrapping="Wrap"/>
                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,4,0,0"/>
-               <TextBlock Text="Двойной щелчок — открыть задачу" Foreground="#5F6368" Margin="0,4,0,0"/>
               </StackPanel>
              </ToolTip>
             </Button.ToolTip>

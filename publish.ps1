@@ -1,4 +1,9 @@
-﻿param([string]$Runtime = "win-x64")
+param(
+    [string]$Runtime = "win-x64",
+    # Сетевая папка обновлений: если указана, готовый архив и update.json копируются в неё.
+    [string]$UpdateFolder = "",
+    [string]$Notes = ""
+)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -33,3 +38,35 @@ if (-not (Test-Path $configPath)) {
 Write-Host "Публикация готова: publish\$Runtime" -ForegroundColor Green
 Write-Host "Путь к сетевой папке настраивается здесь: $configPath" -ForegroundColor Cyan
 Write-Host "Исполняемый файл: $exePath" -ForegroundColor Cyan
+
+# --- Пакет обновления ---------------------------------------------------------
+# Программа обновляется из ZIP-архива в сетевой папке. Рядом с архивом лежит
+# небольшой update.json: по нему проверка новой версии занимает доли секунды.
+
+$version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath).FileVersion
+$version = ($version -split '\.')[0..2] -join '.'
+
+$archiveName = "Планировщик-$version-$Runtime.zip"
+$archivePath = Join-Path $root "publish\$archiveName"
+if (Test-Path $archivePath) { Remove-Item $archivePath -Force }
+Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $archivePath -CompressionLevel Optimal
+
+$manifest = [ordered]@{
+    Version    = $version
+    File       = $archiveName
+    ReleasedAt = (Get-Date).ToString('s')
+    Notes      = $Notes
+}
+$manifestPath = Join-Path $root "publish\update.json"
+$manifest | ConvertTo-Json | Set-Content -Path $manifestPath -Encoding UTF8
+
+Write-Host "Архив обновления: $archivePath" -ForegroundColor Green
+Write-Host "Описание версии: $manifestPath" -ForegroundColor Green
+
+if ($UpdateFolder) {
+    if (-not (Test-Path $UpdateFolder)) { New-Item -ItemType Directory -Path $UpdateFolder -Force | Out-Null }
+    Copy-Item $archivePath  -Destination $UpdateFolder -Force
+    # update.json копируется последним: до этого момента клиенты видят прежнюю версию.
+    Copy-Item $manifestPath -Destination $UpdateFolder -Force
+    Write-Host "Обновление выложено в $UpdateFolder" -ForegroundColor Green
+}

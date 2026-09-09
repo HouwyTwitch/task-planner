@@ -14,6 +14,9 @@ public sealed class TaskItem
     public long? DurationSeconds { get; set; }
     public bool IsAllDay { get; set; }
     public string? CronSchedule { get; set; }
+
+    /// <summary>Переносить повторы, выпавшие на субботу или воскресенье, на ближайший будний день.</summary>
+    public bool ShiftWeekendToWeekday { get; set; }
     public string Status { get; set; } = TaskStatuses.Pending;
     public long? SourceTaskId { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -73,6 +76,10 @@ public sealed class TaskItem
     public string ScheduleDisplay => CronDescriber.Describe(CronSchedule);
 
     public bool IsRecurringTemplate => SourceTaskId is null && !string.IsNullOrWhiteSpace(CronSchedule);
+
+    /// <summary>Пояснение для дубликата просроченной задачи в текущем дне: «Просрочено с 05.09».</summary>
+    public string OverdueOriginDisplay =>
+        StartDate is null ? "Просрочено" : $"Просрочено с {StartDate.Value:dd.MM.yyyy}";
     public string AssigneeDisplay => string.IsNullOrWhiteSpace(AssignedToDisplayName) ? $"ID {AssignedToUserId}" : AssignedToDisplayName;
     public string CreatorDisplay => string.IsNullOrWhiteSpace(CreatedByDisplayName) ? $"ID {CreatedByUserId}" : CreatedByDisplayName;
 

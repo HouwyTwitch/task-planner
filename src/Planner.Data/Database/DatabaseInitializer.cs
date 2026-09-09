@@ -36,9 +36,10 @@ public sealed class DatabaseInitializer
             await EnsureColumnAsync(connection, "Tasks", "SourceTaskId", "INTEGER NULL", ct);
             await EnsureColumnAsync(connection, "Tasks", "CreatedAt", "TEXT NULL", ct);
             await EnsureColumnAsync(connection, "Tasks", "UpdatedAt", "TEXT NULL", ct);
+            await EnsureColumnAsync(connection, "Tasks", "ShiftWeekendToWeekday", "INTEGER NOT NULL DEFAULT 0", ct);
             await using (var backfill = connection.CreateCommand())
             {
-                backfill.CommandText = "UPDATE Tasks SET CreatedAt=COALESCE(CreatedAt, datetime('now','localtime')), UpdatedAt=COALESCE(UpdatedAt, CreatedAt, datetime('now','localtime')); UPDATE Tasks SET StartDate=COALESCE(StartDate, date('now','localtime')), IsAllDay=CASE WHEN StartDate IS NULL THEN 1 ELSE IsAllDay END; UPDATE Tasks SET EndDate=COALESCE(EndDate, StartDate) WHERE IsAllDay=1; PRAGMA user_version=3;";
+                backfill.CommandText = "UPDATE Tasks SET CreatedAt=COALESCE(CreatedAt, datetime('now','localtime')), UpdatedAt=COALESCE(UpdatedAt, CreatedAt, datetime('now','localtime')); UPDATE Tasks SET StartDate=COALESCE(StartDate, date('now','localtime')), IsAllDay=CASE WHEN StartDate IS NULL THEN 1 ELSE IsAllDay END; UPDATE Tasks SET EndDate=COALESCE(EndDate, StartDate) WHERE IsAllDay=1; PRAGMA user_version=4;";
                 await backfill.ExecuteNonQueryAsync(ct);
             }
         }, ct);
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS Tasks (
     DurationSeconds INTEGER NULL,
     IsAllDay INTEGER NOT NULL DEFAULT 0,
     CronSchedule TEXT NULL,
+    ShiftWeekendToWeekday INTEGER NOT NULL DEFAULT 0,
     Status TEXT NOT NULL DEFAULT 'Pending',
     SourceTaskId INTEGER NULL,
     CreatedAt TEXT NOT NULL,
