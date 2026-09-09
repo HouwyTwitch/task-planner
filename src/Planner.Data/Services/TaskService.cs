@@ -1,5 +1,5 @@
-using Cronos;
 using Planner.Core.Models;
+using Planner.Core.Services;
 using Planner.Data.Repositories;
 
 namespace Planner.Data.Services;
@@ -22,6 +22,16 @@ public sealed class TaskService
     {
         await EnsureCanViewAsync(loggedUser,targetUserId,ct);
         return await _tasks.GetForUserAsync(targetUserId,from,to,targetUserId==loggedUser.Id,ct);
+    }
+
+    /// <summary>
+    /// Незакрытые задачи прошедших дней. Календарь дублирует их в текущем дне,
+    /// чтобы просроченное не терялось при переходе по неделям.
+    /// </summary>
+    public async Task<IReadOnlyList<TaskItem>> GetOverdueAsync(User loggedUser,long targetUserId,DateTime before,CancellationToken ct=default)
+    {
+        await EnsureCanViewAsync(loggedUser,targetUserId,ct);
+        return await _tasks.GetOverdueBeforeAsync(targetUserId,before,targetUserId==loggedUser.Id,ct:ct);
     }
 
     public async Task<IReadOnlyList<TaskItem>> GetRecurringTemplatesAsync(User loggedUser,long targetUserId,CancellationToken ct=default)
@@ -68,7 +78,8 @@ public sealed class TaskService
         {
             Title=draft.Title,Description=draft.Description,CreatedByUserId=loggedUser.Id,AssignedToUserId=draft.AssignedToUserId,StartDate=start,
             DurationSeconds=draft.IsAllDay?0:draft.DurationSeconds,EndDate=draft.IsAllDay?start.Date:start.AddSeconds(draft.DurationSeconds),IsAllDay=draft.IsAllDay,
-            CronSchedule=string.IsNullOrWhiteSpace(draft.CronSchedule)?null:draft.CronSchedule.Trim(),Status=draft.Status
+            CronSchedule=string.IsNullOrWhiteSpace(draft.CronSchedule)?null:draft.CronSchedule.Trim(),
+            ShiftWeekendToWeekday=draft.ShiftWeekendToWeekday,Status=draft.Status
         };
         var message=loggedUser.Id==draft.AssignedToUserId ? $"Создана задача «{draft.Title}»" : $"{loggedUser.DisplayName} назначил(а) вам задачу «{draft.Title}»";
         var id=await _tasks.CreateAsync(item,draft.ReminderOffsetSeconds,loggedUser.Id,loggedUser.Role==UserRoles.Admin,message,ct);
@@ -95,7 +106,8 @@ public sealed class TaskService
         var wasRecurring=existing.SourceTaskId is null && !string.IsNullOrWhiteSpace(existing.CronSchedule);
         existing.Title=draft.Title; existing.Description=draft.Description; existing.AssignedToUserId=draft.AssignedToUserId; existing.StartDate=draft.StartDate;
         existing.DurationSeconds=draft.IsAllDay?0:draft.DurationSeconds; existing.EndDate=draft.IsAllDay?draft.StartDate!.Value.Date:draft.StartDate!.Value.AddSeconds(draft.DurationSeconds);
-        existing.IsAllDay=draft.IsAllDay; existing.CronSchedule=string.IsNullOrWhiteSpace(draft.CronSchedule)?null:draft.CronSchedule.Trim(); existing.Status=draft.Status;
+        existing.IsAllDay=draft.IsAllDay; existing.CronSchedule=string.IsNullOrWhiteSpace(draft.CronSchedule)?null:draft.CronSchedule.Trim();
+        existing.ShiftWeekendToWeekday=draft.ShiftWeekendToWeekday; existing.Status=draft.Status;
         await _tasks.UpdateManagedAsync(existing,draft.ReminderOffsetSeconds,loggedUser.Id,loggedUser.Role==UserRoles.Admin,$"Задача «{draft.Title}» изменена",ct);
 
         if(existing.SourceTaskId is null && (wasRecurring || !string.IsNullOrWhiteSpace(existing.CronSchedule)))
@@ -111,7 +123,24 @@ public sealed class TaskService
         if(loggedUser.Role!=UserRoles.Admin && task.CreatedByUserId!=loggedUser.Id)
             throw new UnauthorizedAccessException("Переносить задачу по календарю может только её создатель или администратор.");
         var end=start+task.EffectiveDuration;
-        await _tasks.UpdateScheduleAsync(taskId,start,end,loggedUser.Id,loggedUser.Role==UserRoles.Admin,task.AssignedToUserId,ct);
+        await _tasks.UpdateScheduleAsync(taskId,start,end,loggedUser.Id,loggedUser.Role==UserRoles.Admin,task.AssignedToUserId,false,ct);
+        if(task.AssignedToUserId!=loggedUser.Id) await SafeSignalAsync(task.AssignedToUserId,ct);
+    }
+
+    /// <summary>
+    /// Переносит просроченную задачу на указанный день, сохраняя время начала
+    /// и признак «без времени». Используется командой «Перенести на сегодня».
+    /// </summary>
+    public async Task MoveToDayAsync(User loggedUser, long taskId, DateTime day, CancellationToken ct=default)
+    {
+        var task=await _tasks.GetByIdAsync(taskId,ct) ?? throw new KeyNotFoundException("Задача не найдена.");
+        if(loggedUser.Role!=UserRoles.Admin && task.CreatedByUserId!=loggedUser.Id)
+            throw new UnauthorizedAccessException("Переносить задачу может только её создатель или администратор.");
+
+        var timeOfDay=task.IsAllDay||task.StartDate is null ? TimeSpan.Zero : task.StartDate.Value.TimeOfDay;
+        var start=day.Date+timeOfDay;
+        var end=task.IsAllDay ? start.Date : start+task.EffectiveDuration;
+        await _tasks.UpdateScheduleAsync(taskId,start,end,loggedUser.Id,loggedUser.Role==UserRoles.Admin,task.AssignedToUserId,task.IsAllDay,ct);
         if(task.AssignedToUserId!=loggedUser.Id) await SafeSignalAsync(task.AssignedToUserId,ct);
     }
 
@@ -124,7 +153,7 @@ public sealed class TaskService
         if(loggedUser.Role!=UserRoles.Admin && task.CreatedByUserId!=loggedUser.Id)
             throw new UnauthorizedAccessException("Изменять длительность задачи может только её создатель или администратор.");
         var end=task.StartDate.Value+duration;
-        await _tasks.UpdateScheduleAsync(taskId,task.StartDate.Value,end,loggedUser.Id,loggedUser.Role==UserRoles.Admin,task.AssignedToUserId,ct);
+        await _tasks.UpdateScheduleAsync(taskId,task.StartDate.Value,end,loggedUser.Id,loggedUser.Role==UserRoles.Admin,task.AssignedToUserId,false,ct);
         if(task.AssignedToUserId!=loggedUser.Id) await SafeSignalAsync(task.AssignedToUserId,ct);
     }
 
@@ -173,8 +202,8 @@ public sealed class TaskService
     private static void ValidateCron(string? cron)
     {
         if(string.IsNullOrWhiteSpace(cron)) return;
-        try { _=CronExpression.Parse(cron); }
-        catch(CronFormatException ex) { throw new ArgumentException($"Некорректное Cron-выражение: {ex.Message}", nameof(cron), ex); }
+        try { _=CronSupport.Parse(cron); }
+        catch(FormatException ex) { throw new ArgumentException(ex.Message, nameof(cron), ex); }
     }
 
     private async Task EnsureCanViewAsync(User logged,long target,CancellationToken ct)

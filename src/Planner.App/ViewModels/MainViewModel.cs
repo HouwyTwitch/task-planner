@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using Planner.App.Infrastructure;
 using Planner.App.Services;
 using Planner.Core.Models;
@@ -18,15 +19,25 @@ public sealed class MainViewModel:ObservableObject
     private readonly RecurringTaskProcessor _recurrence;
     private readonly IDialogService _dialogs;
     private readonly INotificationService _notifications;
+    private readonly SettingsStore _settingsStore;
 
     // Последняя выборка из базы. Фильтр по тексту и статусу применяется к ней локально,
     // поэтому набор символов в поиске не создаёт запросов к общей сетевой базе.
     private IReadOnlyList<TaskItem> _loadedTasks=Array.Empty<TaskItem>();
     private IReadOnlyList<TaskItem> _loadedTemplates=Array.Empty<TaskItem>();
+    private IReadOnlyList<TaskItem> _loadedOverdue=Array.Empty<TaskItem>();
 
     public User LoggedUser{get;}
     public bool IsAdmin=>LoggedUser.Role==UserRoles.Admin;
     public int SnapMinutes=>_settings.SnapMinutes;
+    public string VersionCaption=>$"Версия {AppInfo.VersionDisplay}";
+
+    /// <summary>Высота часа в сетке календаря. Меняется колесом мыши с Ctrl и сохраняется между запусками.</summary>
+    public double CalendarHourHeight
+    {
+        get=>_settings.CalendarHourHeight;
+        set{if(Math.Abs(_settings.CalendarHourHeight-value)<0.01)return;_settings.CalendarHourHeight=value;Raise();}
+    }
     public IReadOnlyList<int> NewTaskDurationOptions { get; } = [15,30,45,60,90,120];
     private int _selectedNewTaskDurationMinutes=60;
     public int SelectedNewTaskDurationMinutes { get=>_selectedNewTaskDurationMinutes; set=>Set(ref _selectedNewTaskDurationMinutes,value); }
@@ -34,6 +45,9 @@ public sealed class MainViewModel:ObservableObject
     public ObservableCollection<UserTreeNodeViewModel> UserRoots{get;}=new();
     public ObservableCollection<TaskItem> RecurringTemplates{get;}=new();
     public ObservableCollection<TaskItem> DateOnlyTasks{get;}=new();
+
+    /// <summary>Просроченное со вчера и ранее. Дублируется в верхней полосе текущего дня календаря.</summary>
+    public ObservableCollection<TaskItem> OverdueTasks{get;}=new();
     public ObservableCollection<CalendarTaskViewModel> CalendarTasks{get;}=new();
     public ObservableCollection<DateTime> VisibleDays{get;}=new();
     public ObservableCollection<MonthDayViewModel> MonthDays{get;}=new();
@@ -86,10 +100,11 @@ public sealed class MainViewModel:ObservableObject
     public AsyncRelayCommand NextCommand{get;}
     public AsyncRelayCommand TodayCommand{get;}
     public AsyncRelayCommand SetViewCommand{get;}
+    public AsyncRelayCommand SettingsCommand{get;}
 
-    public MainViewModel(PlannerSettings settings,User logged,TaskService tasks,UserAdminService admin,ChangeLogRepository changes,RecurringTaskProcessor recurrence,IDialogService dialogs,INotificationService notifications)
+    public MainViewModel(PlannerSettings settings,SettingsStore settingsStore,User logged,TaskService tasks,UserAdminService admin,ChangeLogRepository changes,RecurringTaskProcessor recurrence,IDialogService dialogs,INotificationService notifications)
     {
-        _settings=settings;LoggedUser=logged;_tasks=tasks;_admin=admin;_changes=changes;_recurrence=recurrence;_dialogs=dialogs;_notifications=notifications;
+        _settings=settings;_settingsStore=settingsStore;LoggedUser=logged;_tasks=tasks;_admin=admin;_changes=changes;_recurrence=recurrence;_dialogs=dialogs;_notifications=notifications;
         RefreshCommand=new AsyncRelayCommand(()=>RefreshAsync());
         NewTaskCommand=new AsyncRelayCommand(()=>NewTaskAsync());
         EditTaskCommand=new AsyncRelayCommand(()=>EditTaskAsync(),()=>SelectedTask is not null);
@@ -100,6 +115,7 @@ public sealed class MainViewModel:ObservableObject
         NextCommand=new AsyncRelayCommand(async()=>{AnchorDate=ViewMode==CalendarViewMode.Month?AnchorDate.AddMonths(1):AnchorDate.AddDays(ViewMode==CalendarViewMode.Day?1:7);await RefreshAsync();});
         TodayCommand=new AsyncRelayCommand(async()=>{AnchorDate=DateTime.Today;await RefreshAsync();});
         SetViewCommand=new AsyncRelayCommand(async p=>{if(Enum.TryParse<CalendarViewMode>(p?.ToString(),out var m)&&m!=ViewMode){ViewMode=m;await RefreshAsync();}});
+        SettingsCommand=new AsyncRelayCommand(()=>ShowSettingsAsync());
     }
 
     public async Task InitializeAsync(CancellationToken ct=default)
@@ -133,6 +149,7 @@ public sealed class MainViewModel:ObservableObject
             var (from,to)=GetRange();
             _loadedTasks=await _tasks.GetTasksAsync(LoggedUser,SelectedUser.Id,from,to,ct);
             _loadedTemplates=await _tasks.GetRecurringTemplatesAsync(LoggedUser,SelectedUser.Id,ct);
+            _loadedOverdue=await _tasks.GetOverdueAsync(LoggedUser,SelectedUser.Id,DateTime.Today,ct);
             ApplyFilter();
             StatusText=$"Обновлено: {DateTime.Now:T}";
         }
@@ -149,11 +166,14 @@ public sealed class MainViewModel:ObservableObject
         CalendarTasks.Clear();foreach(var t in tasks.Where(x=>!x.IsAllDay))CalendarTasks.Add(new CalendarTaskViewModel(t));
         DateOnlyTasks.Clear();foreach(var t in tasks.Where(x=>x.IsAllDay))DateOnlyTasks.Add(t);
         RecurringTemplates.Clear();foreach(var t in Filter(_loadedTemplates))RecurringTemplates.Add(t);
+        OverdueTasks.Clear();foreach(var t in Filter(_loadedOverdue))OverdueTasks.Add(t);
         BuildMonth(tasks);
 
         // Выделение переживает обновление данных: кнопка «Открыть задачу» не гаснет после синхронизации.
         if(selectedId is long id)
-            SelectedTask=tasks.FirstOrDefault(x=>x.Id==id)??RecurringTemplates.FirstOrDefault(x=>x.Id==id);
+            SelectedTask=tasks.FirstOrDefault(x=>x.Id==id)
+                ??OverdueTasks.FirstOrDefault(x=>x.Id==id)
+                ??RecurringTemplates.FirstOrDefault(x=>x.Id==id);
     }
 
     private IReadOnlyList<TaskItem> Filter(IReadOnlyList<TaskItem> source)
@@ -182,6 +202,28 @@ public sealed class MainViewModel:ObservableObject
     public Task CreateTaskAtAsync(DateTime start,CancellationToken ct=default)=>CreateTaskAsync(start,ct);
 
     public async Task EditSpecificTaskAsync(TaskItem task,CancellationToken ct=default){SelectedTask=task;await EditTaskAsync(ct);}
+
+    /// <summary>Перенос просроченной задачи на сегодня из её контекстного меню.</summary>
+    public async Task MoveToTodayAsync(TaskItem task,CancellationToken ct=default)
+    {
+        try{await _tasks.MoveToDayAsync(LoggedUser,task.Id,DateTime.Today,ct);await RefreshAsync(ct);}
+        catch(Exception ex){_dialogs.Error("Не удалось перенести задачу",ex.Message);}
+    }
+
+    private async Task ShowSettingsAsync(CancellationToken ct=default)
+    {
+        var settings=new SettingsViewModel(_settingsStore,_settings);
+        if(!_dialogs.ShowSettings(settings))return;
+        Raise(nameof(SnapMinutes));
+        await RefreshAsync(ct);
+    }
+
+    /// <summary>Сохраняет параметры, изменённые прямо в главном окне, — например масштаб сетки.</summary>
+    public void PersistSettings()
+    {
+        // Не сохранившийся масштаб сетки не повод мешать выходу из программы.
+        try{_settingsStore.Save(_settings);}catch(IOException){}catch(UnauthorizedAccessException){}
+    }
 
     public async Task ChangeStatusAsync(TaskItem task,string status,CancellationToken ct=default)
     {
@@ -297,7 +339,15 @@ public sealed class MainViewModel:ObservableObject
     {
         MonthDays.Clear();if(ViewMode!=CalendarViewMode.Month)return;
         var first=new DateTime(AnchorDate.Year,AnchorDate.Month,1);var grid=StartOfWeek(first,DayOfWeek.Monday);
-        for(var i=0;i<42;i++){var d=grid.AddDays(i);var vm=new MonthDayViewModel{Date=d,IsCurrentMonth=d.Month==AnchorDate.Month};foreach(var t in tasks.Where(x=>x.StartDate?.Date==d.Date))vm.Tasks.Add(t);MonthDays.Add(vm);}
+        for(var i=0;i<42;i++)
+        {
+            var d=grid.AddDays(i);
+            var vm=new MonthDayViewModel{Date=d,IsCurrentMonth=d.Month==AnchorDate.Month};
+            // Просроченное показывается и в своём дне, и первым в текущем.
+            if(d.Date==DateTime.Today)foreach(var t in OverdueTasks)vm.Tasks.Add(t);
+            foreach(var t in tasks.Where(x=>x.StartDate?.Date==d.Date))vm.Tasks.Add(t);
+            MonthDays.Add(vm);
+        }
     }
 
     private static DateTime StartOfWeek(DateTime date,DayOfWeek start){var diff=(7+(date.DayOfWeek-start))%7;return date.Date.AddDays(-diff);}

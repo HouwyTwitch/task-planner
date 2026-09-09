@@ -10,6 +10,7 @@ public sealed class TaskDraft
     public long DurationSeconds { get; set; } = 3600;
     public bool IsAllDay { get; set; }
     public string? CronSchedule { get; set; }
+    public bool ShiftWeekendToWeekday { get; set; }
     public string Status { get; set; } = TaskStatuses.Pending;
     public long? ReminderOffsetSeconds { get; set; }
 }

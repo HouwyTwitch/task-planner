@@ -5,6 +5,7 @@ using System.Windows.Markup;
 using System.Windows.Threading;
 using Planner.App.Services;
 using Planner.App.ViewModels;
+using Planner.App.Views;
 using Planner.Data.Configuration;
 using Planner.Data.Database;
 using Planner.Data.Repositories;
@@ -18,6 +19,7 @@ public partial class App : Application
     private SignalWatcher? _signalWatcher;
     private BackgroundCoordinator? _background;
     private WindowsNotificationService? _notifications;
+    private MainViewModel? _mainViewModel;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -30,11 +32,13 @@ public partial class App : Application
             _notifications=new WindowsNotificationService(ActivateMainWindow);
             _notifications.Register();
 
-            var settingsPath=Path.Combine(AppContext.BaseDirectory,"planner.settings.json");
-            var settings=PlannerSettings.Load(settingsPath);
-            settings.Validate();
-            if(settings.SharedFolder.Contains(@"\\server\share",StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException(@"Укажите реальный UNC-путь SharedFolder в planner.settings.json, например \\fileserver\Planner$\Planner.");
+            var settingsStore=new SettingsStore();
+            var settings=settingsStore.Load();
+            if(settings.Check() is string settingsError && !TryFixSettings(settingsStore,settings,settingsError))
+            {
+                Shutdown(1);
+                return;
+            }
 
             var netLock=new NetworkDatabaseLock(settings);
             var factory=new SqliteConnectionFactory(settings);
@@ -63,7 +67,8 @@ public partial class App : Application
             await recurrence.ProcessAsync(_cts.Token);
 
             var dialogs=new DialogService();
-            var vm=new MainViewModel(settings,logged,taskService,adminService,changeRepo,recurrence,dialogs,_notifications);
+            var vm=new MainViewModel(settings,settingsStore,logged,taskService,adminService,changeRepo,recurrence,dialogs,_notifications);
+            _mainViewModel=vm;
             await vm.InitializeAsync(_cts.Token);
 
             var window=new MainWindow{DataContext=vm};
@@ -75,12 +80,52 @@ public partial class App : Application
 
             _background=new BackgroundCoordinator(settings,logged.Id,recurrence,reminderRepo,vm,_notifications);
             _background.Start(_cts.Token);
+
+            if(settings.CheckUpdatesOnStartup && settings.HasUpdateFolder)
+                _=CheckUpdatesInBackgroundAsync(settings,vm,_cts.Token);
         }
         catch(Exception ex)
         {
             LogException("Ошибка запуска",ex);
             MessageBox.Show($"{ex.Message}\n\nПодробности записаны в журнал:\n{LogFilePath}","Сетевой планировщик — ошибка запуска",MessageBoxButton.OK,MessageBoxImage.Error);
             Shutdown(1);
+        }
+    }
+
+    /// <summary>
+    /// Настройки заполнены неверно — например путь к общей базе ещё не указан.
+    /// Программа не закрывается молча, а предлагает открыть окно настроек.
+    /// </summary>
+    private static bool TryFixSettings(SettingsStore store,PlannerSettings settings,string error)
+    {
+        var answer=MessageBox.Show(
+            $"{error}\n\nОткрыть настройки, чтобы указать путь?",
+            "Сетевой планировщик — настройка",MessageBoxButton.YesNo,MessageBoxImage.Warning);
+        if(answer!=MessageBoxResult.Yes) return false;
+
+        var editor=new SettingsViewModel(store,settings);
+        var window=new SettingsWindow{DataContext=editor};
+        if(window.ShowDialog()!=true) return false;
+
+        return settings.Check() is null;
+    }
+
+    /// <summary>Тихая проверка обновления при запуске: мешать работе она не должна.</summary>
+    private async Task CheckUpdatesInBackgroundAsync(PlannerSettings settings,MainViewModel vm,CancellationToken ct)
+    {
+        try
+        {
+            var update=await new UpdateService(settings).CheckAsync(TimeSpan.FromSeconds(10),ct);
+            if(update is null) return;
+            await Dispatcher.InvokeAsync(()=>
+                vm.StatusText=$"{UpdateService.DescribeUpdate(update)}. Установить: «Настройки» → «Проверить обновления».");
+            _notifications?.Show("Сетевой планировщик",UpdateService.DescribeUpdate(update));
+        }
+        catch(OperationCanceledException){}
+        catch(Exception ex)
+        {
+            // Недоступная папка обновлений не должна беспокоить пользователя всплывающим окном.
+            LogException("Проверка обновления",ex);
         }
     }
 
@@ -119,9 +164,7 @@ public partial class App : Application
             "Сетевой планировщик — ошибка",MessageBoxButton.OK,MessageBoxImage.Warning);
     }
 
-    private static string LogFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "NetworkPlanner","planner.log");
+    private static string LogFilePath => AppInfo.LogFilePath;
 
     private static void LogException(string scope,Exception? exception)
     {
@@ -156,6 +199,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Масштаб сетки календаря и прочие изменения из главного окна сохраняются при выходе.
+        _mainViewModel?.PersistSettings();
         _cts?.Cancel();
         _signalWatcher?.Dispose();
         _background?.Dispose();

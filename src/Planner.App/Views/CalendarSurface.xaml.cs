@@ -14,8 +14,13 @@ namespace Planner.App.Views;
 
 public partial class CalendarSurface : UserControl
 {
-    private const double TotalHeight = 1152;
-    private const double PixelsPerMinute = TotalHeight / 1440.0;
+    private const double DefaultHourHeight = 48;
+    private const double MinHourHeight = 20;
+    private const double MaxHourHeight = 220;
+    private const double ZoomStep = 1.15;
+    private const double BandRowHeight = 42;
+
+    private double _hourHeight = DefaultHourHeight;
 
     private Point _dragStart;
     private Point _dragPointerOffset;
@@ -29,6 +34,10 @@ public partial class CalendarSurface : UserControl
     private double _resizeSnappedMinutes;
     private bool _initialScrollDone;
     private readonly DispatcherTimer _clock;
+
+    /// <summary>Полная высота суток в сетке; зависит от текущего масштаба.</summary>
+    private double TotalHeight => _hourHeight * 24;
+    private double PixelsPerMinute => TotalHeight / 1440.0;
 
     public CalendarSurface()
     {
@@ -48,7 +57,7 @@ public partial class CalendarSurface : UserControl
         DataContextChanged += (_, _) => Attach();
         SizeChanged += (_, _) => Render();
 
-        BuildGrid();
+        ApplyHourHeight(_hourHeight);
     }
 
     /// <summary>
@@ -71,6 +80,7 @@ public partial class CalendarSurface : UserControl
             _vm.CalendarTasks.CollectionChanged -= TasksChanged;
             _vm.VisibleDays.CollectionChanged -= TasksChanged;
             _vm.DateOnlyTasks.CollectionChanged -= TasksChanged;
+            _vm.OverdueTasks.CollectionChanged -= TasksChanged;
         }
 
         _vm = DataContext as MainViewModel;
@@ -80,6 +90,9 @@ public partial class CalendarSurface : UserControl
             _vm.CalendarTasks.CollectionChanged += TasksChanged;
             _vm.VisibleDays.CollectionChanged += TasksChanged;
             _vm.DateOnlyTasks.CollectionChanged += TasksChanged;
+            _vm.OverdueTasks.CollectionChanged += TasksChanged;
+            // Масштаб сетки сохраняется между запусками.
+            ApplyHourHeight(_vm.CalendarHourHeight);
         }
         Render();
     }
@@ -87,14 +100,49 @@ public partial class CalendarSurface : UserControl
     private void VmChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.Invoke(Render);
     private void TasksChanged(object? sender, NotifyCollectionChangedEventArgs e) => Dispatcher.Invoke(Render);
 
+    /// <summary>
+    /// Ctrl с колесом мыши растягивает и сжимает час сетки. Точка под указателем
+    /// остаётся на месте, поэтому масштаб меняется вокруг выбранного времени.
+    /// </summary>
+    private void TimeScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control || e.Delta == 0) return;
+        e.Handled = true;
+
+        var pointer = e.GetPosition(TimeScroll).Y;
+        var anchorMinutes = (TimeScroll.VerticalOffset + pointer) / PixelsPerMinute;
+
+        if (!ApplyHourHeight(_hourHeight * (e.Delta > 0 ? ZoomStep : 1 / ZoomStep))) return;
+        if (_vm is not null) _vm.CalendarHourHeight = _hourHeight;
+
+        // Прокрутка ограничивается текущим размером содержимого, поэтому раскладку
+        // надо пересчитать до перевода прокрутки на новое место.
+        TimeScroll.UpdateLayout();
+        TimeScroll.ScrollToVerticalOffset(anchorMinutes * PixelsPerMinute - pointer);
+    }
+
+    private bool ApplyHourHeight(double value)
+    {
+        var clamped = Math.Clamp(Math.Round(value, 2), MinHourHeight, MaxHourHeight);
+        if (Math.Abs(clamped - _hourHeight) < 0.01 && TimeLabels.Children.Count > 0) return false;
+
+        _hourHeight = clamped;
+        TimeGrid.Height = TotalHeight;
+        BuildGrid();
+        Render();
+        return true;
+    }
+
     private void BuildGrid()
     {
         TimeLabels.Children.Clear();
+        // При сильном уменьшении подписи каждого часа сливаются — тогда показываем их реже.
+        var everyHours = _hourHeight >= 34 ? 1 : _hourHeight >= 24 ? 2 : 3;
         for (var hour = 0; hour < 24; hour++)
         {
-            var y = hour * 48.0;
+            if (hour % everyHours != 0) continue;
             var label = new TextBlock { Text = $"{hour:00}:00", FontSize = 11, Foreground = Brushes.Gray };
-            Canvas.SetTop(label, y - 7);
+            Canvas.SetTop(label, hour * _hourHeight - 7);
             Canvas.SetLeft(label, 8);
             TimeLabels.Children.Add(label);
         }
@@ -112,8 +160,10 @@ public partial class CalendarSurface : UserControl
 
         var width = Math.Max(100, TaskCanvas.ActualWidth);
         var dayWidth = width / days.Count;
-        var counts = days.Select(d => _vm.DateOnlyTasks.Count(t => t.StartDate?.Date == d.Date)).ToList();
-        DateOnlyCanvas.Height = Math.Max(42, (counts.Count == 0 ? 0 : counts.Max()) * 42 + 8);
+
+        var band = BuildTopBand(days);
+        var bandHeight = Math.Max(BandRowHeight, band.Max(x => x.Count) * BandRowHeight + 8);
+        DateOnlyCanvas.Height = bandHeight;
         var dateWidth = Math.Max(100, DateOnlyCanvas.ActualWidth);
         var dateDayWidth = dateWidth / days.Count;
 
@@ -123,11 +173,12 @@ public partial class CalendarSurface : UserControl
             Canvas.SetLeft(line, i * dayWidth);
             TaskCanvas.Children.Add(line);
 
-            var topLine = new Border { Width = 1, Height = Math.Max(1, DateOnlyCanvas.ActualHeight), Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
+            var topLine = new Border { Width = 1, Height = bandHeight, Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
             Canvas.SetLeft(topLine, i * dateDayWidth);
             DateOnlyCanvas.Children.Add(topLine);
         }
 
+        var halfHour = _hourHeight / 2.0;
         for (var half = 0; half <= 48; half++)
         {
             var line = new Border
@@ -136,29 +187,28 @@ public partial class CalendarSurface : UserControl
                 Width = width,
                 Background = new SolidColorBrush(half % 2 == 0 ? Color.FromRgb(225, 225, 225) : Color.FromRgb(242, 242, 242))
             };
-            Canvas.SetTop(line, half * 24);
+            Canvas.SetTop(line, half * halfHour);
             TaskCanvas.Children.Add(line);
         }
 
-        var noTimeRows = new Dictionary<int, int>();
-        foreach (var task in _vm.DateOnlyTasks)
+        for (var dayIndex = 0; dayIndex < band.Count; dayIndex++)
         {
-            if (task.StartDate is null) continue;
-            var dayIndex = days.FindIndex(d => d.Date == task.StartDate.Value.Date);
-            if (dayIndex < 0) continue;
-            var row = noTimeRows.TryGetValue(dayIndex, out var r) ? r : 0;
-            noTimeRows[dayIndex] = row + 1;
-            var border = CreateTaskBorder(
-                task,
-                Math.Max(30, dateDayWidth - 6),
-                38,
-                _vm.CanManageTask(task),
-                false,
-                null,
-                false);
-            Canvas.SetLeft(border, dayIndex * dateDayWidth + 3);
-            Canvas.SetTop(border, 4 + row * 42);
-            DateOnlyCanvas.Children.Add(border);
+            for (var row = 0; row < band[dayIndex].Count; row++)
+            {
+                var item = band[dayIndex][row];
+                var border = CreateTaskBorder(
+                    item.Task,
+                    Math.Max(30, dateDayWidth - 6),
+                    BandRowHeight - 4,
+                    canDrag: !item.IsOverdueCopy && _vm.CanManageTask(item.Task),
+                    canResize: false,
+                    timeText: null,
+                    allowContentExpansion: false,
+                    isOverdueCopy: item.IsOverdueCopy);
+                Canvas.SetLeft(border, dayIndex * dateDayWidth + 3);
+                Canvas.SetTop(border, 4 + row * BandRowHeight);
+                DateOnlyCanvas.Children.Add(border);
+            }
         }
 
         foreach (var item in _vm.CalendarTasks)
@@ -177,7 +227,8 @@ public partial class CalendarSurface : UserControl
                 canManage,
                 canManage,
                 $"{item.Start:HH:mm}–{item.End:HH:mm}",
-                true);
+                true,
+                false);
             Canvas.SetLeft(border, dayIndex * dayWidth + 3);
             Canvas.SetTop(border, top);
             Panel.SetZIndex(border, 10);
@@ -185,6 +236,32 @@ public partial class CalendarSurface : UserControl
         }
 
         RenderNowLine(days, dayWidth);
+    }
+
+    /// <summary>
+    /// Содержимое верхней полосы по колонкам: сначала просроченное со вчера и ранее
+    /// (только в колонке сегодняшнего дня), затем задачи без времени этого дня.
+    /// </summary>
+    private List<List<BandItem>> BuildTopBand(List<DateTime> days)
+    {
+        var band = new List<List<BandItem>>(days.Count);
+        for (var i = 0; i < days.Count; i++) band.Add([]);
+        if (_vm is null) return band;
+
+        var todayIndex = days.FindIndex(d => d.Date == DateTime.Today);
+        if (todayIndex >= 0)
+            foreach (var task in _vm.OverdueTasks)
+                band[todayIndex].Add(new BandItem(task, true));
+
+        foreach (var task in _vm.DateOnlyTasks)
+        {
+            if (task.StartDate is null) continue;
+            var dayIndex = days.FindIndex(d => d.Date == task.StartDate.Value.Date);
+            if (dayIndex < 0) continue;
+            band[dayIndex].Add(new BandItem(task, false));
+        }
+
+        return band;
     }
 
     /// <summary>Красная линия текущего времени в колонке сегодняшнего дня — как в Google Календаре.</summary>
@@ -223,7 +300,8 @@ public partial class CalendarSurface : UserControl
         bool canDrag,
         bool canResize,
         string? timeText,
-        bool allowContentExpansion)
+        bool allowContentExpansion,
+        bool isOverdueCopy)
     {
         const double resizeGripHeight = 22;
         var colors = GetTaskColors(task);
@@ -233,18 +311,18 @@ public partial class CalendarSurface : UserControl
             DataContext = task,
             Background = new SolidColorBrush(colors.Background),
             BorderBrush = new SolidColorBrush(colors.Border),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(isOverdueCopy ? 2 : 1),
             CornerRadius = new CornerRadius(5),
             Padding = new Thickness(6, 4, 6, 4),
             Width = width,
-            ToolTip = BuildToolTip(task),
-            ContextMenu = BuildContextMenu(task),
+            ToolTip = BuildToolTip(task, isOverdueCopy),
+            ContextMenu = BuildContextMenu(task, isOverdueCopy),
             ClipToBounds = true
         };
 
         var title = new TextBlock
         {
-            Text = task.Title,
+            Text = isOverdueCopy ? "⚠ " + task.Title : task.Title,
             Foreground = Brushes.White,
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
@@ -253,9 +331,11 @@ public partial class CalendarSurface : UserControl
             IsHitTestVisible = false
         };
 
-        var metaText = string.IsNullOrWhiteSpace(timeText)
-            ? $"Исполнитель: {task.AssigneeDisplay} · {task.StatusDisplay}"
-            : $"{timeText} · {task.StatusDisplay}\nИсполнитель: {task.AssigneeDisplay}";
+        var metaText = isOverdueCopy
+            ? $"{task.OverdueOriginDisplay} · {task.AssigneeDisplay}"
+            : string.IsNullOrWhiteSpace(timeText)
+                ? $"Исполнитель: {task.AssigneeDisplay} · {task.StatusDisplay}"
+                : $"{timeText} · {task.StatusDisplay}\nИсполнитель: {task.AssigneeDisplay}";
 
         var meta = new TextBlock
         {
@@ -325,7 +405,7 @@ public partial class CalendarSurface : UserControl
                 VerticalAlignment = VerticalAlignment.Bottom,
                 Cursor = Cursors.SizeNS,
                 Background = Brushes.Transparent,
-                ToolTip = "Изменить длительность: тяните широкую нижнюю область вверх или вниз"
+                ToolTip = "Изменить длительность"
             };
             Panel.SetZIndex(resizeThumb, 20);
             resizeThumb.Template = CreateResizeThumbTemplate();
@@ -380,7 +460,7 @@ public partial class CalendarSurface : UserControl
         return border;
     }
 
-    private static string BuildToolTip(TaskItem task)
+    private static object BuildToolTip(TaskItem task, bool isOverdueCopy)
     {
         var lines = new List<string>
         {
@@ -390,8 +470,9 @@ public partial class CalendarSurface : UserControl
             $"Статус: {task.StatusDisplay}",
             $"Создал: {task.CreatorDisplay}"
         };
+        if (isOverdueCopy && task.StartDate is not null)
+            lines.Insert(1, $"Срок был {task.StartDate.Value:dd.MM.yyyy}");
         if (!string.IsNullOrWhiteSpace(task.Description)) lines.Add(task.Description!.Trim());
-        lines.Add("Двойной щелчок — открыть задачу");
         return string.Join(Environment.NewLine, lines);
     }
 
@@ -436,12 +517,19 @@ public partial class CalendarSurface : UserControl
         _ => (Color.FromRgb(26, 115, 232), Color.FromRgb(21, 88, 176))
     };
 
-    private ContextMenu BuildContextMenu(TaskItem task)
+    private ContextMenu BuildContextMenu(TaskItem task, bool isOverdueCopy)
     {
         var menu = new ContextMenu();
         var open = new MenuItem { Header = "Открыть задачу", FontWeight = FontWeights.SemiBold };
         open.Click += async (_, _) => { if (_vm is not null) await _vm.EditSpecificTaskAsync(task); };
         menu.Items.Add(open);
+
+        if (isOverdueCopy && _vm?.CanManageTask(task) == true)
+        {
+            var moveToToday = new MenuItem { Header = "Перенести на сегодня" };
+            moveToToday.Click += async (_, _) => { if (_vm is not null) await _vm.MoveToTodayAsync(task); };
+            menu.Items.Add(moveToToday);
+        }
 
         var status = new MenuItem { Header = "Изменить статус" };
         AddStatus(status, "Ожидает выполнения", TaskStatuses.Pending, task);
@@ -672,7 +760,10 @@ public partial class CalendarSurface : UserControl
         return null;
     }
 
-    private static double DurationPixels(double minutes) => Math.Max(4, minutes * PixelsPerMinute);
+    private double DurationPixels(double minutes) => Math.Max(4, minutes * PixelsPerMinute);
+
+    /// <summary>Карточка верхней полосы: задача без времени либо дубликат просроченной.</summary>
+    private readonly record struct BandItem(TaskItem Task, bool IsOverdueCopy);
 
     private sealed class DragPreviewAdorner : Adorner
     {

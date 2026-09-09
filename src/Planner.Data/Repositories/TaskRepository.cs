@@ -17,7 +17,7 @@ public sealed class TaskRepository
             await using var cmd = c.CreateCommand();
             cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
-       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
 LEFT JOIN Users a ON a.Id=t.AssignedToUserId
 LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
@@ -35,6 +35,38 @@ ORDER BY t.StartDate, t.IsAllDay DESC, t.Id;
             return (IReadOnlyList<TaskItem>)result;
         }, ct);
 
+    /// <summary>
+    /// Незакрытые задачи, срок которых истёк до указанного дня. Нужны, чтобы показать
+    /// просроченное со вчера и ранее в текущем дне календаря.
+    /// </summary>
+    public Task<IReadOnlyList<TaskItem>> GetOverdueBeforeAsync(long userId, DateTime before, bool includeCreatedBy = false, int limit = 200, CancellationToken ct = default) =>
+        _db.WithConnectionAsync(async c =>
+        {
+            var result = new List<TaskItem>();
+            await using var cmd = c.CreateCommand();
+            cmd.CommandText = """
+SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
+FROM Tasks t
+LEFT JOIN Users a ON a.Id=t.AssignedToUserId
+LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
+WHERE (($includeCreated=1 AND (t.AssignedToUserId=$uid OR t.CreatedByUserId=$uid)) OR ($includeCreated=0 AND t.AssignedToUserId=$uid))
+  AND t.StartDate IS NOT NULL AND t.StartDate < $before
+  AND t.Status <> 'Completed'
+  AND NOT (t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL)
+ORDER BY t.StartDate DESC, t.Id DESC
+LIMIT $limit;
+""";
+            cmd.Parameters.AddWithValue("$uid", userId);
+            cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+            cmd.Parameters.AddWithValue("$before", DbTime.ToText(before));
+            cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
+            result.Reverse();
+            return (IReadOnlyList<TaskItem>)result;
+        }, ct);
+
     public Task<IReadOnlyList<TaskItem>> GetRecurringTemplatesAsync(long userId, bool includeCreatedBy = false, CancellationToken ct = default) =>
         _db.WithConnectionAsync(async c =>
         {
@@ -42,7 +74,7 @@ ORDER BY t.StartDate, t.IsAllDay DESC, t.Id;
             await using var cmd = c.CreateCommand();
             cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
-       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
 LEFT JOIN Users a ON a.Id=t.AssignedToUserId
 LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
@@ -77,7 +109,7 @@ ORDER BY t.Id DESC;
 
             cmd.CommandText = $"""
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
-       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
 LEFT JOIN Users a ON a.Id=t.AssignedToUserId
 LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
@@ -99,7 +131,7 @@ ORDER BY t.StartDate, t.Id;
             await using var cmd = c.CreateCommand();
             cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
-       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
 LEFT JOIN Users a ON a.Id=t.AssignedToUserId
 LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
@@ -118,8 +150,8 @@ WHERE t.Id=$id;
             task.CreatedAt = now; task.UpdatedAt = now;
             await using var cmd = c.CreateCommand(); cmd.Transaction = tx;
             cmd.CommandText = """
-INSERT INTO Tasks(Title,Description,CreatedByUserId,AssignedToUserId,StartDate,EndDate,DurationSeconds,IsAllDay,CronSchedule,Status,SourceTaskId,CreatedAt,UpdatedAt)
-VALUES($t,$d,$cb,$a,$s,$e,$dur,$all,$cron,$status,$src,$ca,$ua);
+INSERT INTO Tasks(Title,Description,CreatedByUserId,AssignedToUserId,StartDate,EndDate,DurationSeconds,IsAllDay,CronSchedule,ShiftWeekendToWeekday,Status,SourceTaskId,CreatedAt,UpdatedAt)
+VALUES($t,$d,$cb,$a,$s,$e,$dur,$all,$cron,$shift,$status,$src,$ca,$ua);
 SELECT last_insert_rowid();
 """;
             AddTaskParameters(cmd, task);
@@ -138,7 +170,7 @@ SELECT last_insert_rowid();
             await using var cmd = c.CreateCommand(); cmd.Transaction = tx;
             cmd.CommandText = """
 UPDATE Tasks SET Title=$t,Description=$d,AssignedToUserId=$a,StartDate=$s,EndDate=$e,DurationSeconds=$dur,
-IsAllDay=$all,CronSchedule=$cron,Status=$status,UpdatedAt=$ua WHERE Id=$id;
+IsAllDay=$all,CronSchedule=$cron,ShiftWeekendToWeekday=$shift,Status=$status,UpdatedAt=$ua WHERE Id=$id;
 """;
             AddTaskParameters(cmd, task); cmd.Parameters.AddWithValue("$id", task.Id);
             await cmd.ExecuteNonQueryAsync(ct);
@@ -172,14 +204,15 @@ IsAllDay=$all,CronSchedule=$cron,Status=$status,UpdatedAt=$ua WHERE Id=$id;
             return true;
         },ct);
 
-    public Task UpdateScheduleAsync(long taskId, DateTime start, DateTime end, long actorUserId, bool actorIsAdmin, long targetUserId, CancellationToken ct = default) =>
+    public Task UpdateScheduleAsync(long taskId, DateTime start, DateTime end, long actorUserId, bool actorIsAdmin, long targetUserId, bool isAllDay = false, CancellationToken ct = default) =>
         _db.WithTransactionAsync(async (c, tx) =>
         {
             await EnsureCanManageTaskAsync(c, tx, actorUserId, actorIsAdmin, taskId, ct);
             await using var cmd = c.CreateCommand(); cmd.Transaction = tx;
-            cmd.CommandText = "UPDATE Tasks SET StartDate=$s,EndDate=$e,DurationSeconds=$dur,IsAllDay=0,UpdatedAt=$u WHERE Id=$id";
+            cmd.CommandText = "UPDATE Tasks SET StartDate=$s,EndDate=$e,DurationSeconds=$dur,IsAllDay=$all,UpdatedAt=$u WHERE Id=$id";
             cmd.Parameters.AddWithValue("$s", DbTime.ToText(start)); cmd.Parameters.AddWithValue("$e", DbTime.ToText(end));
-            cmd.Parameters.AddWithValue("$dur", (long)(end-start).TotalSeconds); cmd.Parameters.AddWithValue("$u", DbTime.ToText(DateTime.Now)); cmd.Parameters.AddWithValue("$id", taskId);
+            cmd.Parameters.AddWithValue("$dur", isAllDay ? 0L : (long)(end-start).TotalSeconds); cmd.Parameters.AddWithValue("$all", isAllDay ? 1 : 0);
+            cmd.Parameters.AddWithValue("$u", DbTime.ToText(DateTime.Now)); cmd.Parameters.AddWithValue("$id", taskId);
             await cmd.ExecuteNonQueryAsync(ct);
             await InsertChangeAsync(c, tx, "Task", taskId, "Rescheduled", actorUserId, targetUserId, "Время задачи изменено", ct);
             return true;
@@ -286,7 +319,8 @@ SELECT EXISTS(SELECT 1 FROM Subordinates WHERE Id=$target);
         cmd.Parameters.AddWithValue("$cb", t.CreatedByUserId); cmd.Parameters.AddWithValue("$a", t.AssignedToUserId);
         cmd.Parameters.AddWithValue("$s", (object?)DbTime.ToText(t.StartDate) ?? DBNull.Value); cmd.Parameters.AddWithValue("$e", (object?)DbTime.ToText(t.EndDate) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$dur", (object?)t.DurationSeconds ?? DBNull.Value); cmd.Parameters.AddWithValue("$all", t.IsAllDay ? 1 : 0);
-        cmd.Parameters.AddWithValue("$cron", (object?)t.CronSchedule ?? DBNull.Value); cmd.Parameters.AddWithValue("$status", t.Status);
+        cmd.Parameters.AddWithValue("$cron", (object?)t.CronSchedule ?? DBNull.Value); cmd.Parameters.AddWithValue("$shift", t.ShiftWeekendToWeekday ? 1 : 0);
+        cmd.Parameters.AddWithValue("$status", t.Status);
         cmd.Parameters.AddWithValue("$src", (object?)t.SourceTaskId ?? DBNull.Value); cmd.Parameters.AddWithValue("$ca", DbTime.ToText(t.CreatedAt == default ? DateTime.Now : t.CreatedAt));
         cmd.Parameters.AddWithValue("$ua", DbTime.ToText(t.UpdatedAt == default ? DateTime.Now : t.UpdatedAt));
     }
@@ -306,6 +340,7 @@ SELECT EXISTS(SELECT 1 FROM Subordinates WHERE Id=$target);
         Id=r.GetInt64(0), Title=r.GetString(1), Description=r.IsDBNull(2)?null:r.GetString(2), CreatedByUserId=r.GetInt64(3), AssignedToUserId=r.GetInt64(4),
         StartDate=DbTime.ParseNullable(r.GetValue(5)), EndDate=DbTime.ParseNullable(r.GetValue(6)), DurationSeconds=r.IsDBNull(7)?null:r.GetInt64(7), IsAllDay=r.GetInt64(8)!=0,
         CronSchedule=r.IsDBNull(9)?null:r.GetString(9), Status=r.GetString(10), SourceTaskId=r.IsDBNull(11)?null:r.GetInt64(11), CreatedAt=DbTime.Parse(r.GetString(12)), UpdatedAt=DbTime.Parse(r.GetString(13)),
-        AssignedToDisplayName=r.FieldCount>14 && !r.IsDBNull(14)?r.GetString(14):string.Empty, CreatedByDisplayName=r.FieldCount>15 && !r.IsDBNull(15)?r.GetString(15):string.Empty
+        AssignedToDisplayName=r.FieldCount>14 && !r.IsDBNull(14)?r.GetString(14):string.Empty, CreatedByDisplayName=r.FieldCount>15 && !r.IsDBNull(15)?r.GetString(15):string.Empty,
+        ShiftWeekendToWeekday=r.FieldCount>16 && !r.IsDBNull(16) && r.GetInt64(16)!=0
     };
 }

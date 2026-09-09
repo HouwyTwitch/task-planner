@@ -27,8 +27,28 @@ public sealed class DialogService : IDialogService
         w.ShowDialog();
     }
 
+    public bool ShowSettings(SettingsViewModel settings)
+    {
+        var w=new SettingsWindow{DataContext=settings,Owner=Application.Current.MainWindow};
+        return w.ShowDialog()==true;
+    }
+
     public bool Confirm(string title,string message) =>
         MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.YesNo,MessageBoxImage.Question)==MessageBoxResult.Yes;
+
+    public bool? ConfirmOrCancel(string title,string message)
+    {
+        var answer=MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.YesNoCancel,MessageBoxImage.Question);
+        return answer switch
+        {
+            MessageBoxResult.Yes=>true,
+            MessageBoxResult.No=>false,
+            _=>null
+        };
+    }
+
+    public void Information(string title,string message) =>
+        MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.OK,MessageBoxImage.Information);
 
     public void Error(string title,string message) =>
         MessageBox.Show(Application.Current.MainWindow,message,title,MessageBoxButton.OK,MessageBoxImage.Warning);
