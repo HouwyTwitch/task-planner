@@ -57,6 +57,54 @@ ORDER BY t.Id DESC;
             return (IReadOnlyList<TaskItem>)result;
         }, ct);
 
+    private const string SelectColumns = """
+SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
+       COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,'')
+FROM Tasks t
+LEFT JOIN Users a ON a.Id=t.AssignedToUserId
+LEFT JOIN Users cb ON cb.Id=t.CreatedByUserId
+""";
+
+    /// <summary>Задачи периода и шаблоны повторения в одном соединении.</summary>
+    public Task<(IReadOnlyList<TaskItem> Tasks, IReadOnlyList<TaskItem> Templates)> GetCalendarAsync(long userId, DateTime from, DateTime to, bool includeCreatedBy = false, CancellationToken ct = default) =>
+        _db.WithConnectionAsync(async c =>
+        {
+            var tasks = new List<TaskItem>();
+            var templates = new List<TaskItem>();
+            const string owner = "(($includeCreated=1 AND (t.AssignedToUserId=$uid OR t.CreatedByUserId=$uid)) OR ($includeCreated=0 AND t.AssignedToUserId=$uid))";
+
+            await using (var cmd = c.CreateCommand())
+            {
+                cmd.CommandText = SelectColumns + $"""
+WHERE {owner}
+  AND t.StartDate IS NOT NULL AND t.StartDate >= $from AND t.StartDate < $to
+  AND NOT (t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL)
+ORDER BY t.StartDate, t.IsAllDay DESC, t.Id;
+""";
+                cmd.Parameters.AddWithValue("$uid", userId);
+                cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+                cmd.Parameters.AddWithValue("$from", DbTime.ToText(from));
+                cmd.Parameters.AddWithValue("$to", DbTime.ToText(to));
+                await using var r = await cmd.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct)) tasks.Add(ReadTask(r));
+            }
+
+            await using (var cmd = c.CreateCommand())
+            {
+                cmd.CommandText = SelectColumns + $"""
+WHERE {owner}
+  AND t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL
+ORDER BY t.Id DESC;
+""";
+                cmd.Parameters.AddWithValue("$uid", userId);
+                cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+                await using var r = await cmd.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct)) templates.Add(ReadTask(r));
+            }
+
+            return ((IReadOnlyList<TaskItem>)tasks, (IReadOnlyList<TaskItem>)templates);
+        }, ct);
+
     /// <summary>
     /// Задачи нескольких сотрудников за период — основа отчёта по подчинённым.
     /// Шаблоны повторения исключены: считаются только реальные экземпляры задач.

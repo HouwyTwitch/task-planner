@@ -7,9 +7,9 @@ namespace Planner.App.Services;
 
 public sealed class DialogService : IDialogService
 {
-    public TaskDraft? ShowTaskEditor(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60)
+    public TaskDraft? ShowTaskEditor(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60,bool defaultWithoutTime=false)
     {
-        var vm=new TaskEditorViewModel(existing,reminderOffset,users,defaultAssignee,loggedUser,defaultStart,defaultDurationMinutes);
+        var vm=new TaskEditorViewModel(existing,reminderOffset,users,defaultAssignee,loggedUser,defaultStart,defaultDurationMinutes,defaultWithoutTime);
         var w=new TaskEditorWindow{DataContext=vm,Owner=Application.Current.MainWindow};
         return w.ShowDialog()==true?vm.BuildDraft():null;
     }

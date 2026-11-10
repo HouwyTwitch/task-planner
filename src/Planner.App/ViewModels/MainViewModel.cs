@@ -76,6 +76,12 @@ public sealed class MainViewModel:ObservableObject
     private string _statusText="Готово"; public string StatusText{get=>_statusText;set=>Set(ref _statusText,value);}
     private long _lastChangeId;
 
+    // Номер последнего запущенного обновления: ответы базы могут прийти не по порядку
+    // (сигнал от другого ПК + действие пользователя), применяется только самый свежий.
+    private int _refreshVersion;
+    // Временные идентификаторы для задач, которые уже показаны в календаре, но ещё сохраняются.
+    private long _nextTempId=-1;
+
     public AsyncRelayCommand RefreshCommand{get;}
     public AsyncRelayCommand NewTaskCommand{get;}
     public AsyncRelayCommand EditTaskCommand{get;}
@@ -130,9 +136,14 @@ public sealed class MainViewModel:ObservableObject
         StatusText="Обновление…";
         try
         {
+            var version=++_refreshVersion;
+            var userId=SelectedUser.Id;
             var (from,to)=GetRange();
-            _loadedTasks=await _tasks.GetTasksAsync(LoggedUser,SelectedUser.Id,from,to,ct);
-            _loadedTemplates=await _tasks.GetRecurringTemplatesAsync(LoggedUser,SelectedUser.Id,ct);
+            var (tasks,templates)=await _tasks.GetCalendarAsync(LoggedUser,userId,from,to,ct);
+            // Пока шёл запрос, пользователь мог переключить неделю/сотрудника или запустить новое обновление.
+            if(version!=_refreshVersion)return;
+            _loadedTasks=tasks;
+            _loadedTemplates=templates;
             ApplyFilter();
             StatusText=$"Обновлено: {DateTime.Now:T}";
         }
@@ -171,21 +182,55 @@ public sealed class MainViewModel:ObservableObject
 
     public async Task RescheduleTaskAsync(TaskItem task,DateTime start,CancellationToken ct=default)
     {
-        try{await _tasks.RescheduleAsync(LoggedUser,task.Id,start,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось перенести задачу",ex.Message);}
+        if(task.Id<=0)return;
+        // Карточка переезжает сразу, запись в сетевую базу идёт в фоне.
+        var duration=task.EffectiveDuration;
+        ApplyLocally(task,t=>{t.StartDate=start;t.EndDate=start+duration;t.DurationSeconds=(long)duration.TotalSeconds;t.IsAllDay=false;});
+        await PersistAsync(()=>_tasks.RescheduleAsync(LoggedUser,task.Id,start,ct),"Не удалось перенести задачу",ct);
     }
 
     public async Task ResizeTaskAsync(TaskItem task,TimeSpan duration,CancellationToken ct=default)
     {
-        try{await _tasks.ResizeAsync(LoggedUser,task.Id,duration,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось изменить длительность",ex.Message);}
+        if(task.Id<=0||task.StartDate is null)return;
+        ApplyLocally(task,t=>{t.EndDate=t.StartDate!.Value+duration;t.DurationSeconds=(long)duration.TotalSeconds;});
+        await PersistAsync(()=>_tasks.ResizeAsync(LoggedUser,task.Id,duration,ct),"Не удалось изменить длительность",ct);
     }
 
-    public Task CreateTaskAtAsync(DateTime start,CancellationToken ct=default)=>CreateTaskAsync(start,ct);
+    /// <summary>Создание задачи из сетки: время начала и длительность выбраны протягиванием мыши.</summary>
+    public Task CreateTaskAtAsync(DateTime start,int? durationMinutes=null,CancellationToken ct=default)=>
+        CreateTaskAsync(start,durationMinutes??SelectedNewTaskDurationMinutes,false,ct);
+
+    /// <summary>Создание задачи без времени — щелчок по полосе «Без времени».</summary>
+    public Task CreateDateOnlyTaskAsync(DateTime date,CancellationToken ct=default)=>
+        CreateTaskAsync(date.Date,SelectedNewTaskDurationMinutes,true,ct);
+
+    /// <summary>
+    /// Оптимистичное изменение: правим локальную копию задачи и сразу перерисовываем календарь.
+    /// Если сохранение не удастся, следующее обновление из базы вернёт прежнее состояние.
+    /// </summary>
+    private void ApplyLocally(TaskItem task,Action<TaskItem> change)
+    {
+        change(task);
+        var loaded=_loadedTasks.FirstOrDefault(x=>x.Id==task.Id);
+        if(loaded is not null&&!ReferenceEquals(loaded,task))change(loaded);
+        ApplyFilter();
+    }
+
+    private async Task PersistAsync(Func<Task> save,string errorTitle,CancellationToken ct)
+    {
+        StatusText="Сохранение…";
+        try{await save();}
+        catch(Exception ex){_dialogs.Error(errorTitle,ex.Message);}
+        await RefreshAsync(ct);
+    }
 
     public async Task EditSpecificTaskAsync(TaskItem task,CancellationToken ct=default){SelectedTask=task;await EditTaskAsync(ct);}
 
     public async Task ChangeStatusAsync(TaskItem task,string status,CancellationToken ct=default)
     {
-        try{await _tasks.ChangeStatusAsync(LoggedUser,task.Id,status,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось изменить статус",ex.Message);}
+        if(task.Id<=0)return;
+        ApplyLocally(task,t=>t.Status=status);
+        await PersistAsync(()=>_tasks.ChangeStatusAsync(LoggedUser,task.Id,status,ct),"Не удалось изменить статус",ct);
     }
 
     public async Task DeleteTaskAsync(TaskItem task,CancellationToken ct=default)
@@ -194,12 +239,25 @@ public sealed class MainViewModel:ObservableObject
             ?$"Удалить шаблон «{task.Title}» и все его будущие повторы?"
             :$"Удалить задачу «{task.Title}»?";
         if(!_dialogs.Confirm("Удаление задачи",question))return;
-        try{await _tasks.DeleteAsync(LoggedUser,task.Id,ct);SelectedTask=null;await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось удалить задачу",ex.Message);}
+        if(task.Id<=0)return;
+        SelectedTask=null;
+        _loadedTasks=_loadedTasks.Where(x=>x.Id!=task.Id&&x.SourceTaskId!=task.Id).ToList();
+        _loadedTemplates=_loadedTemplates.Where(x=>x.Id!=task.Id).ToList();
+        ApplyFilter();
+        await PersistAsync(()=>_tasks.DeleteAsync(LoggedUser,task.Id,ct),"Не удалось удалить задачу",ct);
     }
 
     public async Task TransferTaskAsync(TaskItem task,User target,CancellationToken ct=default)
     {
-        try{await _tasks.TransferAsync(LoggedUser,task.Id,target.Id,ct);await _recurrence.ProcessAsync(ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось передать задачу",ex.Message);}
+        if(task.Id<=0)return;
+        try
+        {
+            StatusText="Сохранение…";
+            await _tasks.TransferAsync(LoggedUser,task.Id,target.Id,ct);
+            if(task.IsRecurringTemplate)await RunRecurrenceAsync(ct);
+        }
+        catch(Exception ex){_dialogs.Error("Не удалось передать задачу",ex.Message);}
+        await RefreshAsync(ct);
     }
 
     public async Task HandleExternalSignalAsync(CancellationToken ct=default)
@@ -217,21 +275,57 @@ public sealed class MainViewModel:ObservableObject
         catch(Exception ex){StatusText=$"Синхронизация: {ex.Message}";}
     }
 
-    private Task NewTaskAsync(CancellationToken ct=default)=>CreateTaskAsync(AnchorDate.Date.AddHours(9),ct);
+    private Task NewTaskAsync(CancellationToken ct=default)=>CreateTaskAsync(AnchorDate.Date.AddHours(9),SelectedNewTaskDurationMinutes,false,ct);
 
-    private async Task CreateTaskAsync(DateTime start,CancellationToken ct=default)
+    private async Task CreateTaskAsync(DateTime start,int durationMinutes,bool withoutTime,CancellationToken ct=default)
     {
         if(SelectedUser is null)return;
+        TaskDraft? draft;
+        try{draft=_dialogs.ShowTaskEditor(null,null,AccessibleUsers.ToList(),SelectedUser.Id,LoggedUser,start,durationMinutes,withoutTime);}
+        catch(Exception ex){_dialogs.Error("Ошибка создания задачи",ex.Message);return;}
+        if(draft is null)return;
+
+        // Задача появляется в календаре сразу после закрытия окна, ещё до записи в сетевую базу.
+        var placeholder=ShowPendingTask(draft);
+        StatusText="Сохранение задачи…";
         try
         {
-            var draft=_dialogs.ShowTaskEditor(null,null,AccessibleUsers.ToList(),SelectedUser.Id,LoggedUser,start,SelectedNewTaskDurationMinutes);
-            if(draft is null)return;
-            await _tasks.CreateAsync(LoggedUser,draft,ct);
-            if(!string.IsNullOrWhiteSpace(draft.CronSchedule))await _recurrence.ProcessAsync(ct);
-            await RefreshAsync(ct);
+            var id=await _tasks.CreateAsync(LoggedUser,draft,ct);
+            if(placeholder is not null)placeholder.Id=id;
+            if(!string.IsNullOrWhiteSpace(draft.CronSchedule))await RunRecurrenceAsync(ct);
         }
-        catch(Exception ex){_dialogs.Error("Ошибка создания задачи",ex.Message);}
+        catch(Exception ex)
+        {
+            if(placeholder is not null){_loadedTasks=_loadedTasks.Where(x=>!ReferenceEquals(x,placeholder)).ToList();ApplyFilter();}
+            _dialogs.Error("Ошибка создания задачи",ex.Message);
+        }
+        await RefreshAsync(ct);
     }
+
+    private TaskItem? ShowPendingTask(TaskDraft draft)
+    {
+        if(SelectedUser is null||draft.StartDate is null||!string.IsNullOrWhiteSpace(draft.CronSchedule))return null;
+        var (from,to)=GetRange();
+        var start=draft.StartDate.Value;
+        if(start<from||start>=to)return null;
+        var visibleForSelected=draft.AssignedToUserId==SelectedUser.Id||(SelectedUser.Id==LoggedUser.Id);
+        if(!visibleForSelected)return null;
+
+        var item=new TaskItem
+        {
+            Id=_nextTempId--,Title=draft.Title,Description=draft.Description,CreatedByUserId=LoggedUser.Id,AssignedToUserId=draft.AssignedToUserId,
+            StartDate=start,DurationSeconds=draft.IsAllDay?0:draft.DurationSeconds,EndDate=draft.IsAllDay?start.Date:start.AddSeconds(draft.DurationSeconds),
+            IsAllDay=draft.IsAllDay,Status=draft.Status,CreatedAt=DateTime.Now,UpdatedAt=DateTime.Now,
+            CreatedByDisplayName=LoggedUser.DisplayName,
+            AssignedToDisplayName=AccessibleUsers.FirstOrDefault(x=>x.Id==draft.AssignedToUserId)?.DisplayName??string.Empty
+        };
+        _loadedTasks=_loadedTasks.Append(item).OrderBy(x=>x.StartDate).ThenByDescending(x=>x.IsAllDay).ToList();
+        ApplyFilter();
+        return item;
+    }
+
+    /// <summary>Генерация повторов перебирает все шаблоны на год вперёд — только в фоне и только когда нужно.</summary>
+    private Task RunRecurrenceAsync(CancellationToken ct)=>Task.Run(()=>_recurrence.ProcessAsync(ct),ct);
 
     private async Task EditTaskAsync(CancellationToken ct=default)
     {
@@ -239,14 +333,17 @@ public sealed class MainViewModel:ObservableObject
         var task=SelectedTask;
         try
         {
+            if(task.Id<=0)return;
             var rem=await _tasks.GetReminderOffsetAsync(task.Id,ct);
             var draft=_dialogs.ShowTaskEditor(task,rem,AccessibleUsers.ToList(),task.AssignedToUserId,LoggedUser);
             if(draft is null)return;
+            StatusText="Сохранение…";
+            var recurringInvolved=task.IsRecurringTemplate||!string.IsNullOrWhiteSpace(draft.CronSchedule);
             await _tasks.UpdateAsync(LoggedUser,draft,ct);
-            await _recurrence.ProcessAsync(ct);
-            await RefreshAsync(ct);
+            if(recurringInvolved&&task.SourceTaskId is null)await RunRecurrenceAsync(ct);
         }
         catch(Exception ex){_dialogs.Error("Ошибка сохранения задачи",ex.Message);}
+        await RefreshAsync(ct);
     }
 
     private async Task ShowStatisticsAsync(CancellationToken ct=default)

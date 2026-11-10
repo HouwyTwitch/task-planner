@@ -5,7 +5,7 @@ namespace Planner.App.Services;
 
 public interface IDialogService
 {
-    TaskDraft? ShowTaskEditor(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60);
+    TaskDraft? ShowTaskEditor(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60,bool defaultWithoutTime=false);
     User? ShowUserEditor(User? existing,IReadOnlyList<User> users);
     void ShowStatistics(StatisticsViewModel statistics);
     bool Confirm(string title,string message);

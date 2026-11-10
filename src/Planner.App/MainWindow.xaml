@@ -78,7 +78,7 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
                         <TextBlock Text="Длительность:" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="#5F6368"/>
-                        <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность новой задачи, создаваемой двойным щелчком по сетке"/>
+                        <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность новой задачи при простом щелчке по сетке. Протяните мышью по сетке, чтобы сразу задать нужное время"/>
                         <TextBlock Text="мин" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="#5F6368"/>
                         <Button Content="＋ Новая задача" Command="{Binding NewTaskCommand}" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Создать задачу (Ctrl+N)"/>
                         <Button Content="Открыть задачу" Command="{Binding EditTaskCommand}" ToolTip="Открыть выбранную задачу (Ctrl+O). Двойной щелчок по задаче делает то же самое"/>

@@ -24,6 +24,16 @@ public sealed class TaskService
         return await _tasks.GetForUserAsync(targetUserId,from,to,targetUserId==loggedUser.Id,ct);
     }
 
+    /// <summary>
+    /// Задачи периода и шаблоны повторения за одно обращение к сетевой базе:
+    /// один захват planner.lock и одно открытие файла вместо двух.
+    /// </summary>
+    public async Task<(IReadOnlyList<TaskItem> Tasks,IReadOnlyList<TaskItem> Templates)> GetCalendarAsync(User loggedUser,long targetUserId,DateTime from,DateTime to,CancellationToken ct=default)
+    {
+        await EnsureCanViewAsync(loggedUser,targetUserId,ct);
+        return await _tasks.GetCalendarAsync(targetUserId,from,to,targetUserId==loggedUser.Id,ct);
+    }
+
     public async Task<IReadOnlyList<TaskItem>> GetRecurringTemplatesAsync(User loggedUser,long targetUserId,CancellationToken ct=default)
     {
         await EnsureCanViewAsync(loggedUser,targetUserId,ct);
@@ -183,8 +193,14 @@ public sealed class TaskService
         if(!await _users.IsSubordinateAsync(logged.Id,target,ct)) throw new UnauthorizedAccessException("Нет доступа к выбранному сотруднику.");
     }
 
-    private async Task SafeSignalAsync(long userId,CancellationToken ct)
+    /// <summary>
+    /// Сигнал другому ПК — только подсказка «обновись»: изменения уже записаны в базу,
+    /// а у получателя есть резервная периодическая синхронизация. Поэтому запись файла
+    /// сигнала в сетевую папку не задерживает операцию пользователя.
+    /// </summary>
+    private Task SafeSignalAsync(long userId,CancellationToken ct)
     {
-        try{await _signals.SignalUserAsync(userId,ct);}catch{}
+        _=Task.Run(async()=>{try{await _signals.SignalUserAsync(userId,CancellationToken.None).ConfigureAwait(false);}catch{}},CancellationToken.None);
+        return Task.CompletedTask;
     }
 }

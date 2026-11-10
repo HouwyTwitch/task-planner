@@ -28,7 +28,25 @@ public partial class CalendarSurface : UserControl
     private double _resizeMinutes;
     private double _resizeSnappedMinutes;
     private bool _initialScrollDone;
+    private bool _renderPending;
     private readonly DispatcherTimer _clock;
+
+    // Создание задачи протягиванием, как в Google Календаре.
+    private bool _creating;
+    private bool _createMoved;
+    private int _createDayIndex;
+    private double _createAnchorMinutes;
+    private double _createStartMinutes;
+    private double _createEndMinutes;
+    private Point _createPressPoint;
+    private Border? _createPreview;
+    private TextBlock? _createPreviewTime;
+    private readonly DispatcherTimer _autoScroll;
+
+    private static readonly Brush DayLineBrush = Frozen(new SolidColorBrush(Color.FromRgb(225, 225, 225)));
+    private static readonly Brush HalfHourLineBrush = Frozen(new SolidColorBrush(Color.FromRgb(242, 242, 242)));
+    private static readonly Brush MetaBrush = Frozen(new SolidColorBrush(Color.FromArgb(235, 255, 255, 255)));
+    private static readonly Brush NowBrush = Frozen(new SolidColorBrush(Color.FromRgb(217, 48, 37)));
 
     public CalendarSurface()
     {
@@ -36,7 +54,11 @@ public partial class CalendarSurface : UserControl
 
         // Линия текущего времени должна двигаться и без обновления данных.
         _clock = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) };
-        _clock.Tick += (_, _) => { if (IsVisible && _dragTask is null && !_isResizing) Render(); };
+        _clock.Tick += (_, _) => { if (IsVisible && _dragTask is null && !_isResizing) ScheduleRender(); };
+
+        // Пока пользователь тянет новую задачу к краю области, сетка прокручивается сама.
+        _autoScroll = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(30) };
+        _autoScroll.Tick += (_, _) => AutoScrollWhileCreating();
 
         Loaded += (_, _) =>
         {
@@ -44,9 +66,10 @@ public partial class CalendarSurface : UserControl
             ScrollToWorkingHours();
             _clock.Start();
         };
-        Unloaded += (_, _) => _clock.Stop();
+        Unloaded += (_, _) => { _clock.Stop(); CancelCreate(); };
         DataContextChanged += (_, _) => Attach();
-        SizeChanged += (_, _) => Render();
+        SizeChanged += (_, _) => ScheduleRender();
+        IsVisibleChanged += (_, _) => { if (IsVisible) ScheduleRender(); };
 
         BuildGrid();
     }
@@ -81,11 +104,40 @@ public partial class CalendarSurface : UserControl
             _vm.VisibleDays.CollectionChanged += TasksChanged;
             _vm.DateOnlyTasks.CollectionChanged += TasksChanged;
         }
-        Render();
+        ScheduleRender();
     }
 
-    private void VmChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.Invoke(Render);
-    private void TasksChanged(object? sender, NotifyCollectionChangedEventArgs e) => Dispatcher.Invoke(Render);
+    // Перерисовка зависит только от коллекций; смена текста статуса, поиска или выделения
+    // не должна пересобирать всю сетку.
+    private void VmChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainViewModel.ViewMode) or nameof(MainViewModel.AnchorDate)) ScheduleRender();
+    }
+
+    private void TasksChanged(object? sender, NotifyCollectionChangedEventArgs e) => ScheduleRender();
+
+    /// <summary>
+    /// Обновление данных очищает и заново заполняет коллекции: это десятки событий подряд.
+    /// Раньше каждое событие синхронно пересобирало весь календарь (O(N²) по числу задач),
+    /// из-за чего окно подвисало после создания задачи. Теперь все события сливаются
+    /// в одну перерисовку после того, как модель закончит обновление.
+    /// </summary>
+    private void ScheduleRender()
+    {
+        if (_renderPending) return;
+        _renderPending = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+        {
+            _renderPending = false;
+            Render();
+        }));
+    }
+
+    private static T Frozen<T>(T freezable) where T : Freezable
+    {
+        freezable.Freeze();
+        return freezable;
+    }
 
     private void BuildGrid()
     {
@@ -102,7 +154,7 @@ public partial class CalendarSurface : UserControl
 
     private void Render()
     {
-        if (!IsLoaded || _vm is null) return;
+        if (!IsLoaded || !IsVisible || _vm is null) return;
         TaskCanvas.Children.Clear();
         DateOnlyCanvas.Children.Clear();
         _dropHint = null;
@@ -119,11 +171,11 @@ public partial class CalendarSurface : UserControl
 
         for (var i = 0; i <= days.Count; i++)
         {
-            var line = new Border { Width = 1, Height = TotalHeight, Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
+            var line = new Border { Width = 1, Height = TotalHeight, Background = DayLineBrush, IsHitTestVisible = false };
             Canvas.SetLeft(line, i * dayWidth);
             TaskCanvas.Children.Add(line);
 
-            var topLine = new Border { Width = 1, Height = Math.Max(1, DateOnlyCanvas.ActualHeight), Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
+            var topLine = new Border { Width = 1, Height = Math.Max(1, DateOnlyCanvas.Height), Background = DayLineBrush, IsHitTestVisible = false };
             Canvas.SetLeft(topLine, i * dateDayWidth);
             DateOnlyCanvas.Children.Add(topLine);
         }
@@ -134,7 +186,8 @@ public partial class CalendarSurface : UserControl
             {
                 Height = 1,
                 Width = width,
-                Background = new SolidColorBrush(half % 2 == 0 ? Color.FromRgb(225, 225, 225) : Color.FromRgb(242, 242, 242))
+                Background = half % 2 == 0 ? DayLineBrush : HalfHourLineBrush,
+                IsHitTestVisible = false
             };
             Canvas.SetTop(line, half * 24);
             TaskCanvas.Children.Add(line);
@@ -193,7 +246,7 @@ public partial class CalendarSurface : UserControl
         var todayIndex = days.FindIndex(d => d.Date == DateTime.Today);
         if (todayIndex < 0) return;
 
-        var accent = new SolidColorBrush(Color.FromRgb(217, 48, 37));
+        var accent = NowBrush;
         var y = DateTime.Now.TimeOfDay.TotalMinutes * PixelsPerMinute;
 
         var line = new Border { Height = 2, Width = dayWidth, Background = accent, IsHitTestVisible = false };
@@ -238,9 +291,11 @@ public partial class CalendarSurface : UserControl
             Padding = new Thickness(6, 4, 6, 4),
             Width = width,
             ToolTip = BuildToolTip(task),
-            ContextMenu = BuildContextMenu(task),
+            // Меню строится при открытии, а не для каждой карточки при каждой перерисовке.
+            ContextMenu = new ContextMenu(),
             ClipToBounds = true
         };
+        border.ContextMenuOpening += (_, _) => border.ContextMenu = BuildContextMenu(task);
 
         var title = new TextBlock
         {
@@ -260,7 +315,7 @@ public partial class CalendarSurface : UserControl
         var meta = new TextBlock
         {
             Text = metaText,
-            Foreground = new SolidColorBrush(Color.FromArgb(235, 255, 255, 255)),
+            Foreground = MetaBrush,
             FontSize = 9.5,
             Margin = new Thickness(0, 2, 0, 0),
             TextWrapping = TextWrapping.Wrap,
@@ -570,13 +625,181 @@ public partial class CalendarSurface : UserControl
         e.Handled = true;
     }
 
-    private async void TaskCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // ───────────── Создание задачи протягиванием (как в Google Календаре) ─────────────
+    // Нажатие на пустую ячейку сразу показывает блок с временем начала. Не отпуская кнопку,
+    // можно тянуть вниз или вверх — блок растёт с шагом SnapMinutes из настроек.
+    // Простой щелчок создаёт задачу длительностью, выбранной в панели инструментов.
+
+    private void TaskCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || _vm is null || FindTaskBorder(e.OriginalSource as DependencyObject) is not null) return;
-        var start = ResolveGridDateTime(e.GetPosition(TaskCanvas));
-        if (start is null) return;
+        if (_vm is null || _creating || FindTaskBorder(e.OriginalSource as DependencyObject) is not null) return;
+        var days = _vm.VisibleDays.Count;
+        if (days == 0) return;
+
+        var p = e.GetPosition(TaskCanvas);
+        var snap = Snap;
+        var dayWidth = Math.Max(1, TaskCanvas.ActualWidth / days);
+        _createDayIndex = Math.Clamp((int)(p.X / dayWidth), 0, days - 1);
+        var raw = Math.Clamp(p.Y / PixelsPerMinute, 0, 1440 - snap);
+        _createAnchorMinutes = Math.Floor(raw / snap) * snap;
+        _createStartMinutes = _createAnchorMinutes;
+        _createEndMinutes = Math.Min(1440, _createAnchorMinutes + Math.Max(snap, _vm.SelectedNewTaskDurationMinutes));
+        _createPressPoint = p;
+        _createMoved = false;
+        _creating = true;
+
+        Focus();
+        TaskCanvas.CaptureMouse();
+        UpdateCreatePreview();
+        _autoScroll.Start();
         e.Handled = true;
-        await _vm.CreateTaskAtAsync(start.Value);
+    }
+
+    private void TaskCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_creating) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { CancelCreate(); return; }
+        UpdateCreateRange(e.GetPosition(TaskCanvas));
+    }
+
+    private void TaskCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_creating) return;
+        e.Handled = true;
+        _creating = false;
+        _autoScroll.Stop();
+        TaskCanvas.ReleaseMouseCapture();
+
+        if (_vm is null || _createDayIndex >= _vm.VisibleDays.Count) { RemoveCreatePreview(); return; }
+        var start = _vm.VisibleDays[_createDayIndex].Date.AddMinutes(_createStartMinutes);
+        var duration = (int)Math.Round(_createEndMinutes - _createStartMinutes);
+        var vm = _vm;
+
+        // Окно задачи открываем после завершения обработки мыши; блок остаётся на сетке,
+        // пока окно открыто, — видно, куда попадёт задача.
+        Dispatcher.InvokeAsync(new Action(async () =>
+        {
+            try { await vm.CreateTaskAtAsync(start, duration); }
+            finally { RemoveCreatePreview(); }
+        }), DispatcherPriority.Input);
+    }
+
+    private void TaskCanvas_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        // Захват мыши потерян не нами (Alt+Tab, всплывающее окно) — отменяем создание.
+        if (_creating) CancelCreate();
+    }
+
+    private void CalendarSurface_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && _creating)
+        {
+            CancelCreate();
+            e.Handled = true;
+        }
+    }
+
+    private void DateOnlyCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_vm is null || FindTaskBorder(e.OriginalSource as DependencyObject) is not null) return;
+        var days = _vm.VisibleDays.Count;
+        if (days == 0) return;
+        var dayWidth = Math.Max(1, DateOnlyCanvas.ActualWidth / days);
+        var index = Math.Clamp((int)(e.GetPosition(DateOnlyCanvas).X / dayWidth), 0, days - 1);
+        var date = _vm.VisibleDays[index].Date;
+        var vm = _vm;
+        e.Handled = true;
+        Dispatcher.InvokeAsync(new Action(async () => await vm.CreateDateOnlyTaskAsync(date)), DispatcherPriority.Input);
+    }
+
+    private double Snap => Math.Clamp(_vm?.SnapMinutes ?? 30, 1, 240);
+
+    private void UpdateCreateRange(Point p)
+    {
+        if (!_createMoved && Math.Abs(p.Y - _createPressPoint.Y) < SystemParameters.MinimumVerticalDragDistance + 2) return;
+        _createMoved = true;
+
+        var snap = Snap;
+        var current = Math.Clamp(p.Y / PixelsPerMinute, 0, 1440);
+        if (current >= _createAnchorMinutes)
+        {
+            _createStartMinutes = _createAnchorMinutes;
+            _createEndMinutes = Math.Max(_createAnchorMinutes + snap, Math.Ceiling(current / snap) * snap);
+        }
+        else
+        {
+            _createStartMinutes = Math.Floor(current / snap) * snap;
+            _createEndMinutes = _createAnchorMinutes + snap;
+        }
+        _createEndMinutes = Math.Min(1440, _createEndMinutes);
+        UpdateCreatePreview();
+    }
+
+    private void AutoScrollWhileCreating()
+    {
+        if (!_creating) { _autoScroll.Stop(); return; }
+        const double edge = 28;
+        var y = Mouse.GetPosition(TimeScroll).Y;
+        double delta = 0;
+        if (y < edge) delta = -Math.Min(24, (edge - y) / 2 + 4);
+        else if (y > TimeScroll.ActualHeight - edge) delta = Math.Min(24, (y - (TimeScroll.ActualHeight - edge)) / 2 + 4);
+        if (delta == 0) return;
+        TimeScroll.ScrollToVerticalOffset(Math.Clamp(TimeScroll.VerticalOffset + delta, 0, TimeScroll.ScrollableHeight));
+        UpdateCreateRange(Mouse.GetPosition(TaskCanvas));
+    }
+
+    private void UpdateCreatePreview()
+    {
+        if (_vm is null || _vm.VisibleDays.Count == 0) return;
+        var dayWidth = Math.Max(1, TaskCanvas.ActualWidth / _vm.VisibleDays.Count);
+
+        if (_createPreview is null)
+        {
+            _createPreviewTime = new TextBlock { Foreground = Brushes.White, FontSize = 11, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+            var title = new TextBlock { Text = "(Без названия)", Foreground = MetaBrush, FontSize = 10.5, TextTrimming = TextTrimming.CharacterEllipsis };
+            var panel = new StackPanel();
+            panel.Children.Add(_createPreviewTime);
+            panel.Children.Add(title);
+            _createPreview = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(225, 26, 115, 232)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(21, 88, 176)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(6, 3, 6, 3),
+                ClipToBounds = true,
+                Child = panel,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 8, ShadowDepth = 2, Opacity = 0.35 }
+            };
+            OverlayCanvas.Children.Add(_createPreview);
+        }
+
+        _createPreview.Width = Math.Max(30, dayWidth - 6);
+        _createPreview.Height = Math.Max(16, (_createEndMinutes - _createStartMinutes) * PixelsPerMinute - 1);
+        Canvas.SetLeft(_createPreview, _createDayIndex * dayWidth + 3);
+        Canvas.SetTop(_createPreview, _createStartMinutes * PixelsPerMinute);
+
+        var start = TimeSpan.FromMinutes(_createStartMinutes);
+        var end = TimeSpan.FromMinutes(_createEndMinutes);
+        _createPreviewTime!.Text = $"{FormatClock(start)} – {FormatClock(end)} · {FormatDuration(_createEndMinutes - _createStartMinutes)}";
+    }
+
+    private static string FormatClock(TimeSpan t) => t.TotalMinutes >= 1440 ? "24:00" : $"{(int)t.TotalHours:00}:{t.Minutes:00}";
+
+    private void CancelCreate()
+    {
+        var wasCreating = _creating;
+        _creating = false;
+        _autoScroll.Stop();
+        if (wasCreating && TaskCanvas.IsMouseCaptured) TaskCanvas.ReleaseMouseCapture();
+        RemoveCreatePreview();
+    }
+
+    private void RemoveCreatePreview()
+    {
+        if (_createPreview is not null) OverlayCanvas.Children.Remove(_createPreview);
+        _createPreview = null;
+        _createPreviewTime = null;
     }
 
     private void TaskCanvas_DragOver(object sender, DragEventArgs e)

@@ -74,7 +74,7 @@ public sealed class TaskEditorViewModel : ObservableObject
     private string? _cron;
     public string? Cron{get=>_cron;set{if(Set(ref _cron,value))Raise(nameof(RecurrenceHint));}}
 
-    public TaskEditorViewModel(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60)
+    public TaskEditorViewModel(TaskItem? existing,long? reminderOffset,IReadOnlyList<User> users,long defaultAssignee,User loggedUser,DateTime? defaultStart=null,int defaultDurationMinutes=60,bool defaultWithoutTime=false)
     {
         _existing=existing;
         _canEditCore=existing is null || loggedUser.Role==UserRoles.Admin || existing.CreatedByUserId==loggedUser.Id;
@@ -89,6 +89,7 @@ public sealed class TaskEditorViewModel : ObservableObject
             Date=seed.Date;
             Time=seed.ToString("HH:mm");
             DurationMinutes=Math.Max(1,defaultDurationMinutes);
+            WithoutTime=defaultWithoutTime;
         }
 
         if(existing is not null)
