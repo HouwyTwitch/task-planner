@@ -3,8 +3,10 @@ name: Сборка и релиз
 on:
   pull_request:
     branches: [main]
+  # Любой push собирает приложение и сохраняет архив как artifact;
+  # релиз публикуется только из main, пре-релиз — из pull request.
   push:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
 
 permissions:

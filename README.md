@@ -182,7 +182,8 @@ WAL не используется. Перед каждым чтением или
 
 ## Сборка в CI и релизы
 
-GitHub Actions (`.github/workflows/build.yml`) собирает Windows-версию (`win-x64`) на каждый pull request и push в `main`:
+GitHub Actions (`.github/workflows/build.yml`) собирает Windows-версию (`win-x64`) на каждый push и pull request:
 
 - **pull request** — публикуется пре-релиз `pr-<номер>` с zip-архивом; при новых коммитах в PR он перезаписывается;
+- **push в любую ветку** — сборка и zip-архив в artifacts запуска;
 - **push в `main`** (в том числе после merge PR) — публикуется релиз `v1.0.<номер сборки>` с zip-архивом.
