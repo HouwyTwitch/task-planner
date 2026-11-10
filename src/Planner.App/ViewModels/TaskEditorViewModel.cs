@@ -12,6 +12,7 @@ public sealed class TaskEditorViewModel : ObservableObject
 {
     private readonly TaskItem? _existing;
     private readonly bool _canEditCore;
+    private readonly DateTime? _originalDate;
 
     public ObservableCollection<User> Users { get; }
     public ObservableCollection<ReminderUnit> ReminderUnits { get; }=new(ReminderTimeConverter.Units);
@@ -35,6 +36,7 @@ public sealed class TaskEditorViewModel : ObservableObject
     public bool CanEditRecurrence => _canEditCore && _existing?.SourceTaskId is null;
     public bool IsWeeklyRecurrence => CanEditRecurrence && RecurrenceType == "Еженедельно";
     public bool IsCronRecurrence => CanEditRecurrence && RecurrenceType == "Cron";
+    public bool IsRecurring => CanEditRecurrence && RecurrenceType != "Нет";
 
     public string EditModeHint
     {
@@ -48,9 +50,18 @@ public sealed class TaskEditorViewModel : ObservableObject
 
     public bool HasEditModeHint => !string.IsNullOrEmpty(EditModeHint);
 
-    /// <summary>Пояснение к Cron-выражению обычными словами.</summary>
-    public string RecurrenceHint =>
-        IsCronRecurrence && !string.IsNullOrWhiteSpace(Cron) ? $"Будет повторяться {CronDescriber.Describe(Cron)}" : string.Empty;
+    /// <summary>Пояснение к Cron-выражению обычными словами либо текст ошибки разбора.</summary>
+    public string RecurrenceHint
+    {
+        get
+        {
+            if (!IsCronRecurrence || string.IsNullOrWhiteSpace(Cron)) return string.Empty;
+            var error = CronSupport.Validate(Cron);
+            if (error is not null) return error;
+            var format = CronSupport.IsQuartzFormat(Cron) ? "Quartz" : "Unix cron";
+            return $"{format}: будет повторяться {CronDescriber.Describe(Cron)}";
+        }
+    }
 
     private string _title=""; public string Title{get=>_title;set=>Set(ref _title,value);}
     private string? _description; public string? Description{get=>_description;set=>Set(ref _description,value);}
@@ -68,8 +79,12 @@ public sealed class TaskEditorViewModel : ObservableObject
     public string RecurrenceType
     {
         get=>_recurrenceType;
-        set{if(Set(ref _recurrenceType,value)){Raise(nameof(IsWeeklyRecurrence));Raise(nameof(IsCronRecurrence));Raise(nameof(RecurrenceHint));}}
+        set{if(Set(ref _recurrenceType,value)){Raise(nameof(IsWeeklyRecurrence));Raise(nameof(IsCronRecurrence));Raise(nameof(IsRecurring));Raise(nameof(RecurrenceHint));}}
     }
+
+    /// <summary>Переносить повторы, выпавшие на субботу или воскресенье, на будний день.</summary>
+    private bool _shiftWeekendToWeekday;
+    public bool ShiftWeekendToWeekday{get=>_shiftWeekendToWeekday;set=>Set(ref _shiftWeekendToWeekday,value);}
     private DayOption _weeklyDay; public DayOption WeeklyDay{get=>_weeklyDay;set=>Set(ref _weeklyDay,value);}
     private string? _cron;
     public string? Cron{get=>_cron;set{if(Set(ref _cron,value))Raise(nameof(RecurrenceHint));}}
@@ -82,6 +97,7 @@ public sealed class TaskEditorViewModel : ObservableObject
         _selectedStatus=Statuses[0];
         _weeklyDay=Days[0];
         Assignee=Users.FirstOrDefault(x=>x.Id==(existing?.AssignedToUserId??defaultAssignee))??Users.FirstOrDefault();
+        _originalDate=existing?.StartDate?.Date;
 
         if(existing is null)
         {
@@ -96,6 +112,7 @@ public sealed class TaskEditorViewModel : ObservableObject
             Title=existing.Title; Description=existing.Description; Date=existing.StartDate?.Date ?? DateTime.Today;
             Time=existing.StartDate?.ToString("HH:mm")??"09:00"; DurationMinutes=(int)Math.Max(1,existing.EffectiveDuration.TotalMinutes);
             WithoutTime=existing.IsAllDay; SelectedStatus=Statuses.FirstOrDefault(x=>x.Code==existing.Status)??Statuses[0]; Cron=existing.CronSchedule;
+            ShiftWeekendToWeekday=existing.ShiftWeekendToWeekday;
             RecurrenceType=string.IsNullOrWhiteSpace(Cron)?"Нет":"Cron";
         }
         if(reminderOffset is not null){HasReminder=true;var d=ReminderTimeConverter.FromSeconds(reminderOffset.Value);ReminderValue=d.Value;ReminderUnit=d.Unit;}
@@ -109,7 +126,8 @@ public sealed class TaskEditorViewModel : ObservableObject
             {
                 Id=_existing.Id,Title=_existing.Title,Description=Description,AssignedToUserId=_existing.AssignedToUserId,
                 StartDate=_existing.StartDate,DurationSeconds=_existing.DurationSeconds??3600,IsAllDay=_existing.IsAllDay,
-                CronSchedule=_existing.CronSchedule,Status=SelectedStatus.Code,ReminderOffsetSeconds=HasReminder?ReminderTimeConverter.ToSeconds(ReminderValue,ReminderUnit):null
+                CronSchedule=_existing.CronSchedule,ShiftWeekendToWeekday=_existing.ShiftWeekendToWeekday,
+                Status=SelectedStatus.Code,ReminderOffsetSeconds=HasReminder?ReminderTimeConverter.ToSeconds(ReminderValue,ReminderUnit):null
             };
         }
 
@@ -132,15 +150,36 @@ public sealed class TaskEditorViewModel : ObservableObject
             "Ежеквартально"=>SimpleCronBuilder.Quarterly(recurrenceDate,cronTime),
             "Раз в полугодие"=>SimpleCronBuilder.SemiAnnual(recurrenceDate,cronTime),
             "Ежегодно"=>SimpleCronBuilder.Annual(recurrenceDate,cronTime),
-            _=>string.IsNullOrWhiteSpace(Cron)?throw new InvalidOperationException("Введите Cron-выражение."):Cron.Trim()
+            _=>string.IsNullOrWhiteSpace(Cron)?throw new InvalidOperationException("Введите расписание повторения."):Cron.Trim()
         };
+
+        if(CronSupport.Validate(cron) is string cronError) throw new InvalidOperationException(cronError);
 
         return new TaskDraft
         {
             Id=_existing?.Id,Title=Title.Trim(),Description=Description,AssignedToUserId=Assignee.Id,StartDate=start,
             DurationSeconds=WithoutTime?0:Math.Max(1,DurationMinutes)*60L,IsAllDay=WithoutTime,CronSchedule=cron,
+            ShiftWeekendToWeekday=!string.IsNullOrWhiteSpace(cron)&&ShiftWeekendToWeekday,
             Status=SelectedStatus.Code,ReminderOffsetSeconds=HasReminder?ReminderTimeConverter.ToSeconds(ReminderValue,ReminderUnit):null
         };
     }
 
+    /// <summary>
+    /// Дата задачи попала на выходной. Возвращает ближайший будний день,
+    /// на который её стоит перенести, либо <c>null</c>, если переносить нечего.
+    /// Дата, которая была у задачи и раньше, вопросов не вызывает: предупреждение
+    /// показывается только при назначении новой даты.
+    /// </summary>
+    public DateTime? GetWeekendSuggestion()
+    {
+        if(IsLimitedEdit||!CanEditCore||Date is null) return null;
+        var date=Date.Value.Date;
+        if(date==_originalDate) return null;
+        if(!WorkdayCalculator.IsWeekend(date)) return null;
+        var suggestion=WorkdayCalculator.ShiftFromWeekend(date,DateTime.Today).Date;
+        return suggestion==date?null:suggestion;
+    }
+
+    /// <summary>Принимает предложенный перенос: меняет дату задачи на будний день.</summary>
+    public void AcceptWeekendSuggestion(DateTime suggestion)=>Date=suggestion.Date;
 }

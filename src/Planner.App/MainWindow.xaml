@@ -65,6 +65,7 @@
                         <Button Content="Рабочая неделя" Style="{StaticResource WorkWeekViewButton}" Command="{Binding SetViewCommand}" CommandParameter="WorkWeek"/>
                         <Button Content="Месяц" Style="{StaticResource MonthViewButton}" Command="{Binding SetViewCommand}" CommandParameter="Month"/>
                         <Button Content="⟳" ToolTip="Обновить (F5)" Command="{Binding RefreshCommand}"/>
+                        <Button Content="⚙ Настройки" Command="{Binding SettingsCommand}" ToolTip="Настройки, свойства программы и проверка обновлений"/>
                     </StackPanel>
                 </DockPanel>
 
@@ -78,10 +79,10 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
                         <TextBlock Text="Длительность:" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="#5F6368"/>
-                        <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность новой задачи, создаваемой двойным щелчком по сетке"/>
+                        <ComboBox ItemsSource="{Binding NewTaskDurationOptions}" SelectedItem="{Binding SelectedNewTaskDurationMinutes}" Width="66" VerticalAlignment="Center" ToolTip="Длительность новой задачи"/>
                         <TextBlock Text="мин" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="#5F6368"/>
                         <Button Content="＋ Новая задача" Command="{Binding NewTaskCommand}" Background="{StaticResource AccentBrush}" Foreground="White" ToolTip="Создать задачу (Ctrl+N)"/>
-                        <Button Content="Открыть задачу" Command="{Binding EditTaskCommand}" ToolTip="Открыть выбранную задачу (Ctrl+O). Двойной щелчок по задаче делает то же самое"/>
+                        <Button Content="Открыть задачу" Command="{Binding EditTaskCommand}" ToolTip="Открыть выбранную задачу (Ctrl+O)"/>
                         <Button Content="📊 Статистика" Command="{Binding StatisticsCommand}" ToolTip="Отчёт по себе и подчинённым (Ctrl+R)"/>
                     </StackPanel>
                 </DockPanel>
@@ -98,7 +99,7 @@
                     </GroupBox>
                     <GroupBox Grid.Row="2" Header="Шаблоны повторяющихся задач">
                         <ListBox ItemsSource="{Binding RecurringTemplates}" SelectedItem="{Binding SelectedTemplate}" MouseDoubleClick="TaskList_MouseDoubleClick" ContextMenuOpening="RecurringList_ContextMenuOpening"
-                                 ToolTip="Двойной щелчок — открыть шаблон" HorizontalContentAlignment="Stretch">
+                                 HorizontalContentAlignment="Stretch">
                             <ListBox.ContextMenu><ContextMenu/></ListBox.ContextMenu>
                             <ListBox.ItemTemplate><DataTemplate><Border Padding="6" Margin="2" Background="White" BorderBrush="#DADCE0" BorderThickness="1" CornerRadius="4"><StackPanel><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding StartDate, StringFormat=С: {0:dd.MM.yyyy}}" FontSize="10" Foreground="#777"/><TextBlock Text="{Binding ScheduleDisplay, StringFormat='Повтор: {0}'}" FontSize="10" Foreground="#777" TextWrapping="Wrap"/><TextBlock Text="{Binding AssigneeDisplay, StringFormat=Исполнитель: {0}}" FontSize="10" Foreground="#666" TextWrapping="Wrap"/><TextBlock Text="{Binding StatusDisplay, StringFormat=Статус: {0}}" FontSize="10" Foreground="#666"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
                         </ListBox>
@@ -122,7 +123,7 @@
         <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#DADCE0" BorderThickness="0,1,0,0">
             <Grid Margin="8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                <TextBlock Grid.Column="1" Text="Двойной щелчок: по задаче — открыть, по свободной сетке — создать" VerticalAlignment="Center" Margin="0,0,18,0" Foreground="#5F6368"/>
+                <TextBlock Grid.Column="1" Text="{Binding VersionCaption}" VerticalAlignment="Center" Margin="0,0,18,0" Foreground="#5F6368"/>
                 <TextBlock Grid.Column="2" Text="{Binding LoggedUser.DisplayName, StringFormat=Пользователь: {0}}" VerticalAlignment="Center" HorizontalAlignment="Right" FontWeight="SemiBold"/>
             </Grid>
         </Border>

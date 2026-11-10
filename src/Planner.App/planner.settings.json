@@ -9,5 +9,9 @@
   "CronPollSeconds": 60,
   "ReminderPollSeconds": 30,
   "SnapMinutes": 30,
-  "RecurrenceHorizonMonths": 12
+  "RecurrenceHorizonMonths": 12,
+  "UpdateFolder": "",
+  "UpdateManifestFileName": "update.json",
+  "CheckUpdatesOnStartup": true,
+  "CalendarHourHeight": 48
 }
