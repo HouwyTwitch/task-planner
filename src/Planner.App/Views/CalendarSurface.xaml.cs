@@ -22,6 +22,17 @@ public partial class CalendarSurface : UserControl
 
     private double _hourHeight = DefaultHourHeight;
 
+    private static readonly Brush GridLineBrush = Freeze(new SolidColorBrush(Color.FromRgb(225, 225, 225)));
+    private static readonly Brush HalfHourLineBrush = Freeze(new SolidColorBrush(Color.FromRgb(242, 242, 242)));
+    private static readonly Brush CreatePreviewBackground = Freeze(new SolidColorBrush(Color.FromArgb(200, 26, 115, 232)));
+    private static readonly Brush CreatePreviewBorder = Freeze(new SolidColorBrush(Color.FromRgb(21, 88, 176)));
+
+    private static Brush Freeze(Brush brush)
+    {
+        brush.Freeze();
+        return brush;
+    }
+
     private Point _dragStart;
     private Point _dragPointerOffset;
     private TaskItem? _dragTask;
@@ -45,7 +56,7 @@ public partial class CalendarSurface : UserControl
 
         // Линия текущего времени должна двигаться и без обновления данных.
         _clock = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(60) };
-        _clock.Tick += (_, _) => { if (IsVisible && _dragTask is null && !_isResizing) Render(); };
+        _clock.Tick += (_, _) => ScheduleRender();
 
         Loaded += (_, _) =>
         {
@@ -55,7 +66,8 @@ public partial class CalendarSurface : UserControl
         };
         Unloaded += (_, _) => _clock.Stop();
         DataContextChanged += (_, _) => Attach();
-        SizeChanged += (_, _) => Render();
+        SizeChanged += (_, _) => ScheduleRender();
+        IsVisibleChanged += (_, _) => { if (IsVisible) ScheduleRender(); };
 
         ApplyHourHeight(_hourHeight);
     }
@@ -97,8 +109,47 @@ public partial class CalendarSurface : UserControl
         Render();
     }
 
-    private void VmChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.Invoke(Render);
-    private void TasksChanged(object? sender, NotifyCollectionChangedEventArgs e) => Dispatcher.Invoke(Render);
+    // Свойства модели, от которых картинка календаря не зависит. Раньше любое изменение,
+    // включая строку состояния «Обновление…», перестраивало всю сетку.
+    private static readonly HashSet<string> IgnoredVmProperties =
+    [
+        nameof(MainViewModel.StatusText), nameof(MainViewModel.SelectedTask), nameof(MainViewModel.SelectedTemplate),
+        nameof(MainViewModel.SelectedAdminUser), nameof(MainViewModel.SearchText), nameof(MainViewModel.SelectedNewTaskDurationMinutes),
+        nameof(MainViewModel.CalendarHourHeight)
+    ];
+
+    private bool _renderQueued;
+    private bool _renderAfterGesture;
+    private bool _isDragging;
+
+    private void EndGesture()
+    {
+        if (_renderAfterGesture) ScheduleRender();
+    }
+
+    private void VmChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not null && IgnoredVmProperties.Contains(e.PropertyName)) return;
+        ScheduleRender();
+    }
+
+    private void TasksChanged(object? sender, NotifyCollectionChangedEventArgs e) => ScheduleRender();
+
+    /// <summary>
+    /// Обновление данных очищает и заново наполняет несколько коллекций, и каждое
+    /// изменение раньше синхронно перестраивало всю сетку — десятки полных перерисовок
+    /// подряд. Теперь все изменения одного прохода сливаются в одну перерисовку.
+    /// </summary>
+    private void ScheduleRender()
+    {
+        if (_renderQueued) return;
+        _renderQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+        {
+            _renderQueued = false;
+            Render();
+        }));
+    }
 
     /// <summary>
     /// Ctrl с колесом мыши растягивает и сжимает час сетки. Точка под указателем
@@ -150,10 +201,16 @@ public partial class CalendarSurface : UserControl
 
     private void Render()
     {
-        if (!IsLoaded || _vm is null) return;
+        // В режиме «Месяц» сетка скрыта — строить её незачем; перерисуется при показе.
+        if (!IsLoaded || _vm is null || !IsVisible) return;
+        // Перестройка сетки во время перетаскивания или растягивания уничтожила бы карточку
+        // под мышью. Перерисовка откладывается до конца жеста.
+        if (_isResizing || _isDragging) { _renderAfterGesture = true; return; }
+        _renderAfterGesture = false;
         TaskCanvas.Children.Clear();
         DateOnlyCanvas.Children.Clear();
         _dropHint = null;
+        if (_createPreview is not null) TaskCanvas.Children.Add(_createPreview);
 
         var days = _vm.VisibleDays.ToList();
         if (days.Count == 0) return;
@@ -169,11 +226,11 @@ public partial class CalendarSurface : UserControl
 
         for (var i = 0; i <= days.Count; i++)
         {
-            var line = new Border { Width = 1, Height = TotalHeight, Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
+            var line = new Border { Width = 1, Height = TotalHeight, Background = GridLineBrush, IsHitTestVisible = false };
             Canvas.SetLeft(line, i * dayWidth);
             TaskCanvas.Children.Add(line);
 
-            var topLine = new Border { Width = 1, Height = bandHeight, Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)) };
+            var topLine = new Border { Width = 1, Height = bandHeight, Background = GridLineBrush, IsHitTestVisible = false };
             Canvas.SetLeft(topLine, i * dateDayWidth);
             DateOnlyCanvas.Children.Add(topLine);
         }
@@ -185,7 +242,8 @@ public partial class CalendarSurface : UserControl
             {
                 Height = 1,
                 Width = width,
-                Background = new SolidColorBrush(half % 2 == 0 ? Color.FromRgb(225, 225, 225) : Color.FromRgb(242, 242, 242))
+                Background = half % 2 == 0 ? GridLineBrush : HalfHourLineBrush,
+                IsHitTestVisible = false
             };
             Canvas.SetTop(line, half * halfHour);
             TaskCanvas.Children.Add(line);
@@ -200,7 +258,7 @@ public partial class CalendarSurface : UserControl
                     item.Task,
                     Math.Max(30, dateDayWidth - 6),
                     BandRowHeight - 4,
-                    canDrag: !item.IsOverdueCopy && _vm.CanManageTask(item.Task),
+                    canDrag: !item.IsOverdueCopy && !item.Task.IsPendingSave && _vm.CanManageTask(item.Task),
                     canResize: false,
                     timeText: null,
                     allowContentExpansion: false,
@@ -219,7 +277,7 @@ public partial class CalendarSurface : UserControl
             var minutes = item.Start.TimeOfDay.TotalMinutes;
             var top = minutes * PixelsPerMinute;
             var logicalHeight = DurationPixels(item.Task.EffectiveDuration.TotalMinutes);
-            var canManage = _vm.CanManageTask(item.Task);
+            var canManage = _vm.CanManageTask(item.Task) && !item.Task.IsPendingSave;
             var border = CreateTaskBorder(
                 item.Task,
                 Math.Max(30, dayWidth - 6),
@@ -316,8 +374,19 @@ public partial class CalendarSurface : UserControl
             Padding = new Thickness(6, 4, 6, 4),
             Width = width,
             ToolTip = BuildToolTip(task, isOverdueCopy),
-            ContextMenu = BuildContextMenu(task, isOverdueCopy),
-            ClipToBounds = true
+            ClipToBounds = true,
+            // Ещё не записанная в базу задача показывается полупрозрачной.
+            Opacity = task.IsPendingSave ? 0.6 : 1
+        };
+
+        // Меню строится при открытии, а не для каждой карточки при каждой перерисовке.
+        border.ContextMenuOpening += (_, e) =>
+        {
+            e.Handled = true;
+            if (task.IsPendingSave) return;
+            var menu = BuildContextMenu(task, isOverdueCopy);
+            menu.PlacementTarget = border;
+            menu.IsOpen = true;
         };
 
         var title = new TextBlock
@@ -435,16 +504,11 @@ public partial class CalendarSurface : UserControl
             resizeThumb.DragCompleted += async (_, e) =>
             {
                 resizeLabel.Visibility = Visibility.Collapsed;
-                try
-                {
-                    if (_vm is not null)
-                        await _vm.ResizeTaskAsync(task, TimeSpan.FromMinutes(_resizeSnappedMinutes));
-                }
-                finally
-                {
-                    _isResizing = false;
-                }
                 e.Handled = true;
+                _isResizing = false;
+                EndGesture();
+                if (_vm is not null && Math.Abs(_resizeSnappedMinutes - task.EffectiveDuration.TotalMinutes) > 0.01)
+                    await _vm.ResizeTaskAsync(task, TimeSpan.FromMinutes(_resizeSnappedMinutes));
             };
             root.Children.Add(resizeThumb);
         }
@@ -567,6 +631,7 @@ public partial class CalendarSurface : UserControl
     private void Task_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Border border || border.DataContext is not TaskItem task) return;
+        if (task.IsPendingSave) { e.Handled = true; return; }
         _vm?.SelectTask(task);
         if (FindAncestor<Thumb>(e.OriginalSource as DependencyObject) is not null) return;
 
@@ -606,15 +671,18 @@ public partial class CalendarSurface : UserControl
             Math.Abs(p.Y - _dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
 
         StartDragPreview(source);
+        _isDragging = true;
         try
         {
             DragDrop.DoDragDrop(source, new DataObject(typeof(TaskItem), _dragTask), DragDropEffects.Move);
         }
         finally
         {
+            _isDragging = false;
             StopDragPreview();
             RemoveDropHint();
             _dragTask = null;
+            EndGesture();
         }
     }
 
@@ -658,13 +726,182 @@ public partial class CalendarSurface : UserControl
         e.Handled = true;
     }
 
-    private async void TaskCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // ---- Создание задачи мышью, как в Google Календаре -----------------------------
+    // Нажатие на пустом месте сразу показывает заготовку с временем начала. Если, не
+    // отпуская кнопку, тянуть вниз или вверх, заготовка растягивается с шагом сетки
+    // из настроек. Отпускание кнопки открывает карточку задачи с выбранным интервалом.
+    // Простой щелчок без протягивания создаёт задачу длительностью по умолчанию.
+
+    private bool _creating;
+    private bool _createMoved;
+    private bool _createDialogOpen;
+    private Point _createStartPoint;
+    private DateTime _createDay;
+    private int _createDayIndex;
+    private double _createAnchorMinutes;
+    private double _createStartMinutes;
+    private double _createEndMinutes;
+    private Border? _createPreview;
+    private TextBlock? _createLabel;
+
+    private int SnapStep => Math.Max(1, _vm?.SnapMinutes ?? 30);
+    private int DefaultNewDuration => Math.Max(SnapStep, _vm?.SelectedNewTaskDurationMinutes ?? 60);
+
+    private void TaskCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || _vm is null || FindTaskBorder(e.OriginalSource as DependencyObject) is not null) return;
-        var start = ResolveGridDateTime(e.GetPosition(TaskCanvas));
-        if (start is null) return;
+        if (_vm is null || _creating || _createDialogOpen || e.ClickCount != 1) return;
+        if (FindTaskBorder(e.OriginalSource as DependencyObject) is not null) return;
+
+        var days = _vm.VisibleDays.ToList();
+        if (days.Count == 0) return;
+        var p = e.GetPosition(TaskCanvas);
+        var dayWidth = Math.Max(1, TaskCanvas.ActualWidth / days.Count);
+        _createDayIndex = Math.Clamp((int)(p.X / dayWidth), 0, days.Count - 1);
+        _createDay = days[_createDayIndex].Date;
+
+        var snap = SnapStep;
+        _createAnchorMinutes = Math.Clamp(Math.Floor(PointToMinutes(p.Y) / snap) * snap, 0, 1440 - snap);
+        _createStartMinutes = _createAnchorMinutes;
+        _createEndMinutes = Math.Min(1440, _createAnchorMinutes + DefaultNewDuration);
+        _createStartPoint = p;
+        _createMoved = false;
+        _creating = true;
+
+        TaskCanvas.Focus();
+        TaskCanvas.CaptureMouse();
+        UpdateCreatePreview();
         e.Handled = true;
-        await _vm.CreateTaskAtAsync(start.Value);
+    }
+
+    private void TaskCanvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_creating) return;
+        if (e.LeftButton != MouseButtonState.Pressed) { CancelCreate(); return; }
+
+        var p = e.GetPosition(TaskCanvas);
+        if (!_createMoved && Math.Abs(p.Y - _createStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        _createMoved = true;
+
+        var snap = SnapStep;
+        var minutes = Math.Clamp(PointToMinutes(p.Y), 0, 1440);
+        if (minutes >= _createAnchorMinutes)
+        {
+            _createStartMinutes = _createAnchorMinutes;
+            _createEndMinutes = Math.Clamp(Math.Ceiling(minutes / snap) * snap, _createAnchorMinutes + snap, 1440);
+        }
+        else
+        {
+            _createStartMinutes = Math.Max(0, Math.Floor(minutes / snap) * snap);
+            _createEndMinutes = _createAnchorMinutes + snap;
+        }
+
+        UpdateCreatePreview();
+        AutoScrollWhileCreating(e);
+    }
+
+    private void TaskCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_creating || _vm is null) return;
+        _creating = false;
+        if (TaskCanvas.IsMouseCaptured) TaskCanvas.ReleaseMouseCapture();
+        e.Handled = true;
+
+        var start = _createDay.AddMinutes(_createStartMinutes);
+        var duration = (int)Math.Max(SnapStep, _createEndMinutes - _createStartMinutes);
+        var vm = _vm;
+        _createDialogOpen = true;
+
+        // Окно задачи открывается после завершения обработки щелчка, иначе модальное окно
+        // появится при ещё не отпущенном захвате мыши. Заготовка видна, пока окно открыто.
+        Dispatcher.InvokeAsync(async () =>
+        {
+            try { await vm.CreateTaskAtAsync(start, duration); }
+            finally
+            {
+                _createDialogOpen = false;
+                RemoveCreatePreview();
+            }
+        }, DispatcherPriority.Input);
+    }
+
+    private void TaskCanvas_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        // Захват отобран системой (Alt+Tab, всплывающее окно) — создание отменяется.
+        if (_creating) CancelCreate();
+    }
+
+    private void CalendarSurface_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || !_creating) return;
+        CancelCreate();
+        e.Handled = true;
+    }
+
+    private void CancelCreate()
+    {
+        _creating = false;
+        if (TaskCanvas.IsMouseCaptured) TaskCanvas.ReleaseMouseCapture();
+        RemoveCreatePreview();
+    }
+
+    private double PointToMinutes(double y) => y / TotalHeight * 1440.0;
+
+    private void UpdateCreatePreview()
+    {
+        if (_vm is null) return;
+        var days = _vm.VisibleDays.Count;
+        if (days == 0) return;
+        var dayWidth = Math.Max(1, TaskCanvas.ActualWidth / days);
+
+        if (_createPreview is null)
+        {
+            _createLabel = new TextBlock
+            {
+                Foreground = Brushes.White,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap
+            };
+            _createPreview = new Border
+            {
+                Background = CreatePreviewBackground,
+                BorderBrush = CreatePreviewBorder,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(6, 3, 6, 3),
+                IsHitTestVisible = false,
+                Child = _createLabel,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 8, ShadowDepth = 2, Opacity = 0.35 }
+            };
+            Panel.SetZIndex(_createPreview, 60);
+        }
+        if (!TaskCanvas.Children.Contains(_createPreview)) TaskCanvas.Children.Add(_createPreview);
+
+        var start = _createDay.AddMinutes(_createStartMinutes);
+        var end = _createDay.AddMinutes(_createEndMinutes);
+        _createLabel!.Text = $"(Без названия)\n{start:HH:mm} – {(end.Date > start.Date ? "24:00" : end.ToString("HH:mm"))} · {FormatDuration(_createEndMinutes - _createStartMinutes)}";
+
+        _createPreview.Width = Math.Max(30, dayWidth - 6);
+        _createPreview.Height = DurationPixels(_createEndMinutes - _createStartMinutes);
+        Canvas.SetLeft(_createPreview, _createDayIndex * dayWidth + 3);
+        Canvas.SetTop(_createPreview, _createStartMinutes * PixelsPerMinute);
+    }
+
+    private void RemoveCreatePreview()
+    {
+        if (_createPreview is not null) TaskCanvas.Children.Remove(_createPreview);
+        _createPreview = null;
+        _createLabel = null;
+    }
+
+    /// <summary>Если тянуть заготовку к краю видимой области, сетка сама прокручивается.</summary>
+    private void AutoScrollWhileCreating(MouseEventArgs e)
+    {
+        const double edge = 28;
+        const double step = 18;
+        var y = e.GetPosition(TimeScroll).Y;
+        if (y < edge) TimeScroll.ScrollToVerticalOffset(Math.Max(0, TimeScroll.VerticalOffset - step));
+        else if (y > TimeScroll.ViewportHeight - edge) TimeScroll.ScrollToVerticalOffset(TimeScroll.VerticalOffset + step);
     }
 
     private void TaskCanvas_DragOver(object sender, DragEventArgs e)

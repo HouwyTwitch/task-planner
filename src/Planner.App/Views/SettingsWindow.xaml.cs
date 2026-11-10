@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Win32;
 using Planner.App.ViewModels;
 
@@ -20,14 +21,39 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>Файлы уже подготовлены — программу нужно закрыть, чтобы сценарий их заменил.</summary>
-    private void OnUpdateReady(object? sender, Planner.Core.Models.AvailableUpdate update)
+    private void OnUpdateReady(object? sender, Services.PreparedUpdate update)
     {
-        MessageBox.Show(this,
-            $"Версия {Services.UpdateService.FormatVersion(update.Version)} подготовлена к установке.\n" +
-            "Программа сейчас закроется и запустится заново уже обновлённой.",
-            "Обновление", MessageBoxButton.OK, MessageBoxImage.Information);
+        var answer = MessageBox.Show(this,
+            $"Версия {Services.UpdateService.FormatVersion(update.Version)} готова к установке.\n" +
+            "Программа закроется и сразу запустится заново уже обновлённой.",
+            "Обновление", MessageBoxButton.OKCancel, MessageBoxImage.Information);
+        if (answer != MessageBoxResult.OK) return;
+
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            Services.UpdateService.ApplyAndRestart(update);
+        }
+        catch (Exception ex)
+        {
+            Mouse.OverrideCursor = null;
+            MessageBox.Show(this, ex.Message, "Обновление", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (DataContext is SettingsViewModel vm) vm.ReportUpdateFailure(ex.Message);
+            return;
+        }
+
+        // Файлы уже заменены и новая версия запущена — текущую закрываем без промедления.
+        Mouse.OverrideCursor = null;
         DialogResult = false;
         Application.Current.Shutdown();
+
+        // Если завершение почему-либо зависнет (например, на системных уведомлениях),
+        // процесс всё равно закрывается: новая версия уже запущена и ждёт его выхода.
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            Environment.Exit(0);
+        });
     }
 
     private void BrowseShared_Click(object sender, RoutedEventArgs e)

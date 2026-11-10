@@ -156,8 +156,8 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Установка обновления: подготовка и запрос на перезапуск.</summary>
-    public event EventHandler<AvailableUpdate>? UpdateReadyToInstall;
+    /// <summary>Обновление скачано и распаковано — окно подтверждает и выполняет перезапуск.</summary>
+    public event EventHandler<PreparedUpdate>? UpdateReadyToInstall;
 
     private async Task InstallUpdateAsync()
     {
@@ -167,12 +167,15 @@ public sealed class SettingsViewModel : ObservableObject
         {
             UpdateStatus = "Подготовка обновления…";
             var progress = new Progress<string>(text => UpdateStatus = text);
-            await new UpdateService(_current).PrepareAndLaunchAsync(update, progress);
-            UpdateReadyToInstall?.Invoke(this, update);
+            var prepared = await new UpdateService(_current).PrepareAsync(update, progress);
+            UpdateStatus = "Обновление готово к установке.";
+            UpdateReadyToInstall?.Invoke(this, prepared);
         }
         catch (Exception ex)
         {
             UpdateStatus = $"Не удалось установить обновление: {ex.Message}";
         }
     }
+
+    public void ReportUpdateFailure(string message) => UpdateStatus = $"Обновление не установлено: {message}";
 }

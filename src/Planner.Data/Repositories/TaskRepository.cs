@@ -11,11 +11,13 @@ public sealed class TaskRepository
     public TaskRepository(DatabaseExecutor db) => _db = db;
 
     public Task<IReadOnlyList<TaskItem>> GetForUserAsync(long userId, DateTime from, DateTime to, bool includeCreatedBy = false, CancellationToken ct = default) =>
-        _db.WithConnectionAsync(async c =>
-        {
-            var result = new List<TaskItem>();
-            await using var cmd = c.CreateCommand();
-            cmd.CommandText = """
+        _db.WithConnectionAsync(c => QueryForUserAsync(c, userId, from, to, includeCreatedBy, ct), ct);
+
+    private static async Task<IReadOnlyList<TaskItem>> QueryForUserAsync(SqliteConnection c, long userId, DateTime from, DateTime to, bool includeCreatedBy, CancellationToken ct)
+    {
+        var result = new List<TaskItem>();
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
        COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
@@ -26,25 +28,27 @@ WHERE (($includeCreated=1 AND (t.AssignedToUserId=$uid OR t.CreatedByUserId=$uid
   AND NOT (t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL)
 ORDER BY t.StartDate, t.IsAllDay DESC, t.Id;
 """;
-            cmd.Parameters.AddWithValue("$uid", userId);
-            cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
-            cmd.Parameters.AddWithValue("$from", DbTime.ToText(from));
-            cmd.Parameters.AddWithValue("$to", DbTime.ToText(to));
-            await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
-            return (IReadOnlyList<TaskItem>)result;
-        }, ct);
+        cmd.Parameters.AddWithValue("$uid", userId);
+        cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+        cmd.Parameters.AddWithValue("$from", DbTime.ToText(from));
+        cmd.Parameters.AddWithValue("$to", DbTime.ToText(to));
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
+        return (IReadOnlyList<TaskItem>)result;
+    }
 
     /// <summary>
     /// Незакрытые задачи, срок которых истёк до указанного дня. Нужны, чтобы показать
     /// просроченное со вчера и ранее в текущем дне календаря.
     /// </summary>
     public Task<IReadOnlyList<TaskItem>> GetOverdueBeforeAsync(long userId, DateTime before, bool includeCreatedBy = false, int limit = 200, CancellationToken ct = default) =>
-        _db.WithConnectionAsync(async c =>
-        {
-            var result = new List<TaskItem>();
-            await using var cmd = c.CreateCommand();
-            cmd.CommandText = """
+        _db.WithConnectionAsync(c => QueryOverdueBeforeAsync(c, userId, before, includeCreatedBy, limit, ct), ct);
+
+    private static async Task<IReadOnlyList<TaskItem>> QueryOverdueBeforeAsync(SqliteConnection c, long userId, DateTime before, bool includeCreatedBy, int limit, CancellationToken ct)
+    {
+        var result = new List<TaskItem>();
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
        COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
@@ -57,22 +61,24 @@ WHERE (($includeCreated=1 AND (t.AssignedToUserId=$uid OR t.CreatedByUserId=$uid
 ORDER BY t.StartDate DESC, t.Id DESC
 LIMIT $limit;
 """;
-            cmd.Parameters.AddWithValue("$uid", userId);
-            cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
-            cmd.Parameters.AddWithValue("$before", DbTime.ToText(before));
-            cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
-            await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
-            result.Reverse();
-            return (IReadOnlyList<TaskItem>)result;
-        }, ct);
+        cmd.Parameters.AddWithValue("$uid", userId);
+        cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+        cmd.Parameters.AddWithValue("$before", DbTime.ToText(before));
+        cmd.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 1000));
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
+        result.Reverse();
+        return (IReadOnlyList<TaskItem>)result;
+    }
 
     public Task<IReadOnlyList<TaskItem>> GetRecurringTemplatesAsync(long userId, bool includeCreatedBy = false, CancellationToken ct = default) =>
-        _db.WithConnectionAsync(async c =>
-        {
-            var result = new List<TaskItem>();
-            await using var cmd = c.CreateCommand();
-            cmd.CommandText = """
+        _db.WithConnectionAsync(c => QueryRecurringTemplatesAsync(c, userId, includeCreatedBy, ct), ct);
+
+    private static async Task<IReadOnlyList<TaskItem>> QueryRecurringTemplatesAsync(SqliteConnection c, long userId, bool includeCreatedBy, CancellationToken ct)
+    {
+        var result = new List<TaskItem>();
+        await using var cmd = c.CreateCommand();
+        cmd.CommandText = """
 SELECT t.Id,t.Title,t.Description,t.CreatedByUserId,t.AssignedToUserId,t.StartDate,t.EndDate,t.DurationSeconds,t.IsAllDay,t.CronSchedule,t.Status,t.SourceTaskId,t.CreatedAt,t.UpdatedAt,
        COALESCE(a.DisplayName,''),COALESCE(cb.DisplayName,''),COALESCE(t.ShiftWeekendToWeekday,0)
 FROM Tasks t
@@ -82,11 +88,25 @@ WHERE (($includeCreated=1 AND (t.AssignedToUserId=$uid OR t.CreatedByUserId=$uid
   AND t.CronSchedule IS NOT NULL AND t.SourceTaskId IS NULL
 ORDER BY t.Id DESC;
 """;
-            cmd.Parameters.AddWithValue("$uid", userId);
-            cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
-            await using var r = await cmd.ExecuteReaderAsync(ct);
-            while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
-            return (IReadOnlyList<TaskItem>)result;
+        cmd.Parameters.AddWithValue("$uid", userId);
+        cmd.Parameters.AddWithValue("$includeCreated", includeCreatedBy ? 1 : 0);
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) result.Add(ReadTask(r));
+        return (IReadOnlyList<TaskItem>)result;
+    }
+
+    /// <summary>
+    /// Всё, что нужно календарю, за одно обращение к сетевой базе: задачи периода,
+    /// просроченные и шаблоны повторения. Раньше это были три отдельных захвата
+    /// файла блокировки и три открытия базы по SMB.
+    /// </summary>
+    public Task<CalendarSnapshot> GetCalendarAsync(long userId, DateTime from, DateTime to, DateTime overdueBefore, bool includeCreatedBy, CancellationToken ct = default) =>
+        _db.WithConnectionAsync(async c =>
+        {
+            var tasks = await QueryForUserAsync(c, userId, from, to, includeCreatedBy, ct);
+            var overdue = await QueryOverdueBeforeAsync(c, userId, overdueBefore, includeCreatedBy, 200, ct);
+            var templates = await QueryRecurringTemplatesAsync(c, userId, includeCreatedBy, ct);
+            return new CalendarSnapshot(tasks, overdue, templates);
         }, ct);
 
     /// <summary>
@@ -344,3 +364,5 @@ SELECT EXISTS(SELECT 1 FROM Subordinates WHERE Id=$target);
         ShiftWeekendToWeekday=r.FieldCount>16 && !r.IsDBNull(16) && r.GetInt64(16)!=0
     };
 }
+
+public sealed record CalendarSnapshot(IReadOnlyList<TaskItem> Tasks, IReadOnlyList<TaskItem> Overdue, IReadOnlyList<TaskItem> Templates);

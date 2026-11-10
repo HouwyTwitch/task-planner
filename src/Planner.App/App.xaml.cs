@@ -25,6 +25,8 @@ public partial class App : Application
     {
         ConfigureRussianCulture();
         ConfigureGlobalErrorHandling();
+        // Завершение установки обновления: дождаться выхода прежней версии и убрать её файлы.
+        UpdateService.CompletePendingUpdate(e.Args);
         base.OnStartup(e);
         _cts=new CancellationTokenSource();
         try

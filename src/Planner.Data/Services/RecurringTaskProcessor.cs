@@ -106,7 +106,8 @@ VALUES($title,$desc,$cb,$a,$s,$e,$dur,$all,NULL,$shift,'Pending',$src,$now,$now)
             return count;
         },ct);
 
-        foreach(var target in targets) try { await _signals.SignalUserAsync(target,ct); } catch { }
+        // Сигналы получателям не задерживают вызывающего: повторы уже записаны в базу.
+        foreach(var target in targets) _=_signals.SignalUserAsync(target,CancellationToken.None).ContinueWith(static t=>_=t.Exception,TaskScheduler.Default);
         return created;
     }
 

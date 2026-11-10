@@ -140,21 +140,29 @@ public sealed class MainViewModel:ObservableObject
     /// Себя тоже видно — руководитель может забрать задачу обратно.</summary>
     public IReadOnlyList<User> GetTransferTargets(TaskItem task)=>AccessibleUsers.Where(x=>x.Id!=task.AssignedToUserId).ToList();
 
+    // Номер последнего запущенного обновления. Ответ устаревшего запроса (например,
+    // фоновой синхронизации, начатой до создания задачи) не должен затирать свежие данные.
+    private int _refreshGeneration;
+
     public async Task RefreshAsync(CancellationToken ct=default)
     {
         if(SelectedUser is null)return;
+        var generation=++_refreshGeneration;
+        var user=SelectedUser;
+        var (from,to)=GetRange();
         StatusText="Обновление…";
         try
         {
-            var (from,to)=GetRange();
-            _loadedTasks=await _tasks.GetTasksAsync(LoggedUser,SelectedUser.Id,from,to,ct);
-            _loadedTemplates=await _tasks.GetRecurringTemplatesAsync(LoggedUser,SelectedUser.Id,ct);
-            _loadedOverdue=await _tasks.GetOverdueAsync(LoggedUser,SelectedUser.Id,DateTime.Today,ct);
+            var snapshot=await _tasks.GetCalendarAsync(LoggedUser,user.Id,from,to,DateTime.Today,ct);
+            if(generation!=_refreshGeneration)return;
+            _loadedTasks=snapshot.Tasks;
+            _loadedTemplates=snapshot.Templates;
+            _loadedOverdue=snapshot.Overdue;
             ApplyFilter();
             StatusText=$"Обновлено: {DateTime.Now:T}";
         }
         catch(OperationCanceledException){}
-        catch(Exception ex){StatusText=$"Ошибка обновления: {ex.Message}";}
+        catch(Exception ex){if(generation==_refreshGeneration)StatusText=$"Ошибка обновления: {ex.Message}";}
     }
 
     private void ApplyFilter()
@@ -189,17 +197,32 @@ public sealed class MainViewModel:ObservableObject
     private static bool ContainsText(string? value,string text)=>
         !string.IsNullOrEmpty(value)&&value.Contains(text,StringComparison.CurrentCultureIgnoreCase);
 
+    // Перенос, растяжение и смена статуса сразу отражаются на карточке, а запись в базу
+    // идёт в фоне. При ошибке данные перечитываются из базы и карточка возвращается назад.
+
     public async Task RescheduleTaskAsync(TaskItem task,DateTime start,CancellationToken ct=default)
     {
-        try{await _tasks.RescheduleAsync(LoggedUser,task.Id,start,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось перенести задачу",ex.Message);}
+        if(task.IsPendingSave)return;
+        var duration=task.EffectiveDuration;
+        task.StartDate=start;task.EndDate=start+duration;task.IsAllDay=false;task.DurationSeconds=(long)duration.TotalSeconds;
+        ApplyFilter();
+        try{await _tasks.RescheduleAsync(LoggedUser,task.Id,start,ct);}
+        catch(Exception ex){await RefreshAsync(ct);_dialogs.Error("Не удалось перенести задачу",ex.Message);return;}
+        await RefreshAsync(ct);
     }
 
     public async Task ResizeTaskAsync(TaskItem task,TimeSpan duration,CancellationToken ct=default)
     {
-        try{await _tasks.ResizeAsync(LoggedUser,task.Id,duration,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось изменить длительность",ex.Message);}
+        if(task.IsPendingSave||task.StartDate is null)return;
+        task.DurationSeconds=(long)duration.TotalSeconds;task.EndDate=task.StartDate.Value+duration;
+        ApplyFilter();
+        try{await _tasks.ResizeAsync(LoggedUser,task.Id,duration,ct);}
+        catch(Exception ex){await RefreshAsync(ct);_dialogs.Error("Не удалось изменить длительность",ex.Message);return;}
+        await RefreshAsync(ct);
     }
 
-    public Task CreateTaskAtAsync(DateTime start,CancellationToken ct=default)=>CreateTaskAsync(start,ct);
+    /// <summary>Создание задачи из сетки календаря: начало и длительность выбраны мышью.</summary>
+    public Task CreateTaskAtAsync(DateTime start,int? durationMinutes=null,CancellationToken ct=default)=>CreateTaskAsync(start,durationMinutes,ct);
 
     public async Task EditSpecificTaskAsync(TaskItem task,CancellationToken ct=default){SelectedTask=task;await EditTaskAsync(ct);}
 
@@ -227,7 +250,12 @@ public sealed class MainViewModel:ObservableObject
 
     public async Task ChangeStatusAsync(TaskItem task,string status,CancellationToken ct=default)
     {
-        try{await _tasks.ChangeStatusAsync(LoggedUser,task.Id,status,ct);await RefreshAsync(ct);}catch(Exception ex){_dialogs.Error("Не удалось изменить статус",ex.Message);}
+        if(task.IsPendingSave)return;
+        task.Status=status;
+        ApplyFilter();
+        try{await _tasks.ChangeStatusAsync(LoggedUser,task.Id,status,ct);}
+        catch(Exception ex){await RefreshAsync(ct);_dialogs.Error("Не удалось изменить статус",ex.Message);return;}
+        await RefreshAsync(ct);
     }
 
     public async Task DeleteTaskAsync(TaskItem task,CancellationToken ct=default)
@@ -259,20 +287,73 @@ public sealed class MainViewModel:ObservableObject
         catch(Exception ex){StatusText=$"Синхронизация: {ex.Message}";}
     }
 
-    private Task NewTaskAsync(CancellationToken ct=default)=>CreateTaskAsync(AnchorDate.Date.AddHours(9),ct);
+    private Task NewTaskAsync(CancellationToken ct=default)=>CreateTaskAsync(AnchorDate.Date.AddHours(9),null,ct);
 
-    private async Task CreateTaskAsync(DateTime start,CancellationToken ct=default)
+    private long _nextPendingId;
+
+    private async Task CreateTaskAsync(DateTime start,int? durationMinutes,CancellationToken ct=default)
     {
         if(SelectedUser is null)return;
+        TaskDraft? draft;
+        try{draft=_dialogs.ShowTaskEditor(null,null,AccessibleUsers.ToList(),SelectedUser.Id,LoggedUser,start,durationMinutes??SelectedNewTaskDurationMinutes);}
+        catch(Exception ex){_dialogs.Error("Ошибка создания задачи",ex.Message);return;}
+        if(draft is null)return;
+
+        // Карточка появляется в календаре сразу, а запись в сетевую базу идёт в фоне.
+        var pending=BuildPendingTask(draft);
+        ShowPending(pending,add:true);
+        StatusText="Сохранение задачи…";
         try
         {
-            var draft=_dialogs.ShowTaskEditor(null,null,AccessibleUsers.ToList(),SelectedUser.Id,LoggedUser,start,SelectedNewTaskDurationMinutes);
-            if(draft is null)return;
-            await _tasks.CreateAsync(LoggedUser,draft,ct);
+            pending.Id=await _tasks.CreateAsync(LoggedUser,draft,ct);
+            ApplyFilter();
             if(!string.IsNullOrWhiteSpace(draft.CronSchedule))await _recurrence.ProcessAsync(ct);
-            await RefreshAsync(ct);
         }
-        catch(Exception ex){_dialogs.Error("Ошибка создания задачи",ex.Message);}
+        catch(Exception ex)
+        {
+            ShowPending(pending,add:false);
+            StatusText="Задача не сохранена";
+            _dialogs.Error("Ошибка создания задачи",ex.Message);
+            return;
+        }
+        await RefreshAsync(ct);
+    }
+
+    private TaskItem BuildPendingTask(TaskDraft draft)
+    {
+        var start=draft.StartDate!.Value;
+        var assignee=AccessibleUsers.FirstOrDefault(x=>x.Id==draft.AssignedToUserId);
+        return new TaskItem
+        {
+            Id=--_nextPendingId,Title=draft.Title,Description=draft.Description,
+            CreatedByUserId=LoggedUser.Id,AssignedToUserId=draft.AssignedToUserId,
+            StartDate=start,IsAllDay=draft.IsAllDay,
+            DurationSeconds=draft.IsAllDay?0:draft.DurationSeconds,
+            EndDate=draft.IsAllDay?start.Date:start.AddSeconds(draft.DurationSeconds),
+            CronSchedule=string.IsNullOrWhiteSpace(draft.CronSchedule)?null:draft.CronSchedule.Trim(),
+            ShiftWeekendToWeekday=draft.ShiftWeekendToWeekday,Status=draft.Status,
+            CreatedAt=DateTime.Now,UpdatedAt=DateTime.Now,
+            AssignedToDisplayName=assignee?.DisplayName??string.Empty,CreatedByDisplayName=LoggedUser.DisplayName
+        };
+    }
+
+    /// <summary>Добавляет или убирает ещё не сохранённую задачу в локальной выборке.</summary>
+    private void ShowPending(TaskItem task,bool add)
+    {
+        // Чужая задача в календаре выбранного сотрудника не видна: показываем только то, что попадёт в выборку.
+        if(SelectedUser is null)return;
+        var visible=task.AssignedToUserId==SelectedUser.Id||(SelectedUser.Id==LoggedUser.Id&&task.CreatedByUserId==LoggedUser.Id);
+        if(!visible)return;
+        if(task.CronSchedule is not null)_loadedTemplates=Toggle(_loadedTemplates,task,add);
+        else _loadedTasks=Toggle(_loadedTasks,task,add);
+        ApplyFilter();
+
+        static IReadOnlyList<TaskItem> Toggle(IReadOnlyList<TaskItem> source,TaskItem item,bool add)
+        {
+            var list=source.Where(x=>!ReferenceEquals(x,item)).ToList();
+            if(add)list.Add(item);
+            return list;
+        }
     }
 
     private async Task EditTaskAsync(CancellationToken ct=default)
