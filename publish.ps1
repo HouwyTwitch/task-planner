@@ -2,7 +2,9 @@
     [string]$Runtime = "win-x64",
     # Сетевая папка обновлений: если указана, готовый архив и update.json копируются в неё.
     [string]$UpdateFolder = "",
-    [string]$Notes = ""
+    [string]$Notes = "",
+    # Начало имени архива. В CI используется латиница: GitHub искажает кириллицу в именах файлов релиза.
+    [string]$ArchiveBaseName = "Планировщик"
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,7 +48,7 @@ Write-Host "Исполняемый файл: $exePath" -ForegroundColor Cyan
 $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath).FileVersion
 $version = ($version -split '\.')[0..2] -join '.'
 
-$archiveName = "Планировщик-$version-$Runtime.zip"
+$archiveName = "$ArchiveBaseName-$version-$Runtime.zip"
 $archivePath = Join-Path $root "publish\$archiveName"
 if (Test-Path $archivePath) { Remove-Item $archivePath -Force }
 Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $archivePath -CompressionLevel Optimal

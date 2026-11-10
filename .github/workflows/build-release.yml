@@ -1,0 +1,107 @@
+name: Сборка и релиз
+
+# Каждый push и pull request собирается. Push в main, где в Directory.Build.props
+# стоит ещё не выпущенная версия, дополнительно публикует сборку и создаёт релиз vX.Y.Z
+# с ZIP-архивом и update.json для автообновления из сетевой папки.
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Пересоздать релиз текущей версии, даже если он уже есть'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  RUNTIME: win-x64
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Сборка
+        run: ./build.ps1
+
+      - name: Версия и необходимость релиза
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $version = ($props.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1).Trim()
+          if (-not $version) { throw 'В Directory.Build.props не найдена <Version>' }
+          $tag = "v$version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+          $isMain = '${{ github.ref }}' -eq 'refs/heads/main' -and '${{ github.event_name }}' -ne 'pull_request'
+          $force = '${{ inputs.force_release }}' -eq 'true'
+          $exists = $false
+          gh release view $tag --repo '${{ github.repository }}' *> $null
+          if ($LASTEXITCODE -eq 0) { $exists = $true }
+          $global:LASTEXITCODE = 0
+
+          $release = $isMain -and (-not $exists -or $force)
+          "release=$($release.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          "exists=$($exists.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Версия $version; релиз $tag существует: $exists; выпускать: $release"
+
+      - name: Публикация
+        run: |
+          $subject = (git log -1 --pretty=%s).Trim()
+          ./publish.ps1 -Runtime $env:RUNTIME -ArchiveBaseName NetworkPlanner -Notes $subject
+
+      - name: Архив сборки
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetworkPlanner-${{ steps.version.outputs.version }}-${{ env.RUNTIME }}
+          path: |
+            publish/NetworkPlanner-*.zip
+            publish/update.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Релиз на GitHub
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $zip = Get-ChildItem publish -Filter 'NetworkPlanner-*.zip' | Select-Object -First 1
+          if ('${{ steps.version.outputs.exists }}' -eq 'true') {
+            gh release delete $tag --repo '${{ github.repository }}' --yes --cleanup-tag
+          }
+          gh release create $tag $zip.FullName publish/update.json `
+            --repo '${{ github.repository }}' `
+            --target '${{ github.sha }}' `
+            --title "Сетевой планировщик $tag" `
+            --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "Не удалось создать релиз $tag" }

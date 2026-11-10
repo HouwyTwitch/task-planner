@@ -25,6 +25,16 @@ public sealed class TaskService
     }
 
     /// <summary>
+    /// Данные календаря одним обращением к базе: задачи периода, просроченное до
+    /// <paramref name="overdueBefore"/> и шаблоны повторения.
+    /// </summary>
+    public async Task<CalendarSnapshot> GetCalendarAsync(User loggedUser,long targetUserId,DateTime from,DateTime to,DateTime overdueBefore,CancellationToken ct=default)
+    {
+        await EnsureCanViewAsync(loggedUser,targetUserId,ct);
+        return await _tasks.GetCalendarAsync(targetUserId,from,to,overdueBefore,targetUserId==loggedUser.Id,ct);
+    }
+
+    /// <summary>
     /// Незакрытые задачи прошедших дней. Календарь дублирует их в текущем дне,
     /// чтобы просроченное не терялось при переходе по неделям.
     /// </summary>
@@ -72,7 +82,8 @@ public sealed class TaskService
     public async Task<long> CreateAsync(User loggedUser, TaskDraft draft, CancellationToken ct=default)
     {
         ValidateDraft(draft); ValidateCron(draft.CronSchedule);
-        await EnsureCanViewAsync(loggedUser,draft.AssignedToUserId,ct);
+        // Право назначать задачу проверяется внутри транзакции создания —
+        // отдельный предварительный запрос к сетевой базе не нужен.
         var start=draft.StartDate!.Value;
         var item=new TaskItem
         {
@@ -212,8 +223,14 @@ public sealed class TaskService
         if(!await _users.IsSubordinateAsync(logged.Id,target,ct)) throw new UnauthorizedAccessException("Нет доступа к выбранному сотруднику.");
     }
 
-    private async Task SafeSignalAsync(long userId,CancellationToken ct)
+    /// <summary>
+    /// Сигнал другому пользователю — запись маленького файла в сетевую папку. Пользователь
+    /// не должен ждать её завершения: изменение уже сохранено в базе, а если сигнал
+    /// потеряется, получатель всё равно увидит его при плановой синхронизации.
+    /// </summary>
+    private Task SafeSignalAsync(long userId,CancellationToken ct)
     {
-        try{await _signals.SignalUserAsync(userId,ct);}catch{}
+        _=Task.Run(async()=>{try{await _signals.SignalUserAsync(userId,CancellationToken.None);}catch{}},CancellationToken.None);
+        return Task.CompletedTask;
     }
 }
